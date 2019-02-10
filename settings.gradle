@@ -1,0 +1,3 @@
+rootProject.name = 'typesafe-config-annotations'
+
+include 'processor', 'annotations', 'app'

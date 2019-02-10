@@ -1,0 +1,75 @@
+# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and Webstorm
+# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+
+coverage
+coverage/**
+
+producer-log.txt
+
+.DS_Store
+
+**/df-producer-dev.json
+
+**/aws_credentials
+
+*/target/*
+target
+*.iml
+
+# User-specific stuff:
+.idea/
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/vcs.xml
+.idea/jsLibraryMappings.xml
+
+# Sensitive or high-churn files:
+.idea/dataSources.ids
+.idea/dataSources.xml
+.idea/dataSources.local.xml
+.idea/sqlDataSources.xml
+.idea/dynamic.xml
+.idea/uiDesigner.xml
+
+## File-based project format:
+*.iws
+*.log
+
+## Plugin-specific files:
+
+# IntelliJ
+/out/
+*/out/
+
+# mpeltonen/sbt-idea plugin
+.idea_modules/
+
+# JIRA plugin
+atlassian-ide-plugin.xml
+
+# Crashlytics plugin (for Android Studio and IntelliJ)
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+.project
+.settings
+.classpath
+.checkstyle
+
+# gradle
+.gradle
+build
+gradlew.bat
+
+# emacs backup files
+*~
+
+app/aspectjweaver-1.9.1.jar
+
+# vss code
+.vscode
+/app/bin
+/acceptance/bin
