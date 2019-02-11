@@ -12,7 +12,6 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
-
 import java.io.IOException;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -55,7 +54,9 @@ public class ConfigProcessor extends AbstractProcessor {
       JavaFile.builder(configClass.packageName(), configClass.build()).build().writeTo(filer);
     } catch (RuntimeException rte) {
       messager.printMessage(Kind.ERROR, rte.getMessage());
-    } catch (IOException ignored) {}
+    } catch (IOException ioe) {
+      messager.printMessage(Kind.WARNING, ioe.getMessage());
+    }
     return true;
   }
 }

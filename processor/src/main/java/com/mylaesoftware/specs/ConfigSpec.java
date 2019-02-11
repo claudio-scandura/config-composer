@@ -7,7 +7,6 @@ import com.typesafe.config.Config;
 
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
-
 import java.util.Set;
 
 import static com.mylaesoftware.specs.ConfigSpecReducer.specMerger;
