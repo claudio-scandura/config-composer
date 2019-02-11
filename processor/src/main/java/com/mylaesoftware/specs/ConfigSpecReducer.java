@@ -15,7 +15,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
 
@@ -25,9 +24,9 @@ import static org.apache.commons.lang3.StringUtils.getCommonPrefix;
 
 public class ConfigSpecReducer {
 
-  public static final BiFunction<ConfigSpec, TypeElement, ConfigSpec> accumulator = (acc, element) -> {
+  public static ConfigSpec accumulate(ConfigSpec spec, TypeElement element) {
     if (!element.getKind().isInterface()) {
-      throw new RuntimeException("@Config can only be used on interfaces");
+      throw new RuntimeException(Config.class.getSimpleName() + " can only be used on interfaces");
     }
 
     String rootKey = Optional.ofNullable(element.getAnnotation(Config.class)).map(Config::rootKey).orElse("");
@@ -39,35 +38,35 @@ public class ConfigSpecReducer {
         .filter(e -> ElementKind.METHOD.equals(e.getKind()) && null != e.getAnnotation(ConfigValue.class))
         .map(method -> new ConfigValueSpec(rootKey, (Symbol.MethodSymbol) method))
         .collect(toSet());
-    return acc.isEmpty()
+    return spec.isEmpty()
         ? new ConfigSpec(packageName, interfaces, configReaders)
         : new ConfigSpec(
-        getCommonPrefix(packageName, acc.packageName),
-        append(interfaces, acc.superInterfaces),
-        append(configReaders, acc.configValues));
+        getCommonPrefix(packageName, spec.packageName),
+        append(interfaces, spec.superInterfaces),
+        append(configReaders, spec.configValues));
   };
 
 
-  public static final BinaryOperator<ConfigSpec> combiner = (left, right) -> {
-    if (left.isEmpty()) {
-      return right;
+  public static ConfigSpec combine(ConfigSpec one, ConfigSpec other) {
+    if (one.isEmpty()) {
+      return other;
     }
-    if (right.isEmpty()) {
-      return left;
+    if (other.isEmpty()) {
+      return one;
     }
 
-    String packageName = getCommonPrefix(left.packageName, right.packageName);
+    String packageName = getCommonPrefix(one.packageName, other.packageName);
 
     return new ConfigSpec(packageName,
-        append(left.superInterfaces, right.superInterfaces),
-        append(left.configValues, right.configValues)
+        append(one.superInterfaces, other.superInterfaces),
+        append(one.configValues, other.configValues)
     );
   };
 
   public final static BinaryOperator<TypeSpec.Builder> specMerger = (left, right) -> {
     TypeSpec one = left.build();
     TypeSpec other = right.build();
-    return TypeSpec.classBuilder(ConfigSpec.className)
+    return TypeSpec.classBuilder(ConfigSpec.CLASS_NAME)
         .addModifiers(one.modifiers.toArray(new Modifier[0]))
         .addSuperinterfaces(one.superinterfaces)
         .addFields(append(one.fieldSpecs, other.fieldSpecs))

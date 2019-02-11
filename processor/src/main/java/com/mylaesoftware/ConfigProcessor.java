@@ -50,7 +50,7 @@ public class ConfigProcessor extends AbstractProcessor {
 
       ConfigSpec configClass = roundEnv.getElementsAnnotatedWith(Config.class).parallelStream()
           .map(e -> (TypeElement) e)
-          .reduce(ConfigSpec.empty(), ConfigSpecReducer.accumulator, ConfigSpecReducer.combiner);
+          .reduce(ConfigSpec.empty(), ConfigSpecReducer::accumulate, ConfigSpecReducer::combine);
 
       JavaFile.builder(configClass.packageName(), configClass.build()).build().writeTo(filer);
     } catch (RuntimeException rte) {
