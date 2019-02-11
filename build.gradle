@@ -4,15 +4,32 @@ buildscript {
 allprojects {
     apply plugin: "java"
     apply plugin: 'idea'
+    apply plugin: 'checkstyle'
+
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
 
     repositories {
         jcenter()
         mavenCentral()
     }
-    
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
+
+    checkstyle {
+        toolVersion = "8.17"
+        maxWarnings = 0
+        maxErrors = 0
+    }
+
+    tasks.withType(Checkstyle) {
+
+        reports {
+            xml.enabled false
+            html.enabled true
+        }
+    }
+
 }
+
 
 wrapper {
     gradleVersion = '5.2'

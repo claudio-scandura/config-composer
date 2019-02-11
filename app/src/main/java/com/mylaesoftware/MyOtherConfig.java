@@ -1,7 +1,6 @@
 package com.mylaesoftware;
 
 
-
 @Config(rootKey = "some.other")
 public interface MyOtherConfig {
 

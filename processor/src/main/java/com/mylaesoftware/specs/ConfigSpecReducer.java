@@ -10,7 +10,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -44,8 +43,7 @@ public class ConfigSpecReducer {
         getCommonPrefix(packageName, spec.packageName),
         append(interfaces, spec.superInterfaces),
         append(configReaders, spec.configValues));
-  };
-
+  }
 
   public static ConfigSpec combine(ConfigSpec one, ConfigSpec other) {
     if (one.isEmpty()) {
@@ -61,9 +59,9 @@ public class ConfigSpecReducer {
         append(one.superInterfaces, other.superInterfaces),
         append(one.configValues, other.configValues)
     );
-  };
+  }
 
-  public final static BinaryOperator<TypeSpec.Builder> specMerger = (left, right) -> {
+  public static final BinaryOperator<TypeSpec.Builder> specMerger = (left, right) -> {
     TypeSpec one = left.build();
     TypeSpec other = right.build();
     return TypeSpec.classBuilder(ConfigSpec.CLASS_NAME)

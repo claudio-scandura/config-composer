@@ -1,7 +1,6 @@
 package com.mylaesoftware;
 
 
-
 @Config
 public interface MyConfigClass {
 
