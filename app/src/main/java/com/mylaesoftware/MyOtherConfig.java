@@ -5,6 +5,6 @@ package com.mylaesoftware;
 public interface MyOtherConfig {
 
   @ConfigValue(atKey = "value")
-  String getOtherConfigValue();
+  String getConfigOtherValue();
 
 }

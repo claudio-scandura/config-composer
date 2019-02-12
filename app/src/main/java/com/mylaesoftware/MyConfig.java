@@ -2,7 +2,7 @@ package com.mylaesoftware;
 
 
 @Config
-public interface MyConfigClass {
+public interface MyConfig {
 
   @ConfigValue(atKey = "some.value")
   String getConfigValue();

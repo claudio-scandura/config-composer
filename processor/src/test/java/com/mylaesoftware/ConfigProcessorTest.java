@@ -18,16 +18,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class ConfigProcessorTest {
 
-  private final static String ANY_NAME = "[a-zA-Z0-9_]+";
+  private static final String ANY_NAME = "[a-zA-Z0-9_]+";
 
-  private final static String INPUT_SOURCE_NAME = "TestInterface";
+  private static final String INPUT_SOURCE_NAME = "TestInterface";
 
-  private final static String CONFIG_FIELD_KEY = "path.to.property";
-  private final static String CONFIG_FIELD_TYPE = "String";
-  private final static String CONFIG_FIELD_NAME = "property";
-  private final static String NON_CONFIG_FIELD_NAME = "other";
+  private static final String CONFIG_FIELD_KEY = "path.to.property";
+  private static final String CONFIG_FIELD_TYPE = "String";
+  private static final String CONFIG_FIELD_NAME = "property";
+  private static final String NON_CONFIG_FIELD_NAME = "other";
 
-  private static String DEFAULT_INPUT = String.format("import com.mylaesoftware.Config;\n" +
+  private static final String DEFAULT_INPUT = String.format("import com.mylaesoftware.Config;\n" +
       "import com.mylaesoftware.ConfigValue;\n" +
       "\n" +
       "@Config\n" +
