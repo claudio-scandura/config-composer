@@ -12,7 +12,3 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.1.0"
 }
 
-test {
-    useJUnitPlatform()
-}
-

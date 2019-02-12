@@ -10,9 +10,13 @@ import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
+
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -21,6 +25,7 @@ public class ConfigProcessor extends AbstractProcessor {
 
   private Filer filer;
   private Messager messager;
+  private final Set<Element> annotatedClasses = Collections.synchronizedSet(new HashSet<>());
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -44,10 +49,13 @@ public class ConfigProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+    if (!annotatedClasses.addAll(roundEnv.getElementsAnnotatedWith(Config.class))) {
+      return true;
+    }
 
     try {
 
-      ConfigSpec configClass = roundEnv.getElementsAnnotatedWith(Config.class).parallelStream()
+      ConfigSpec configClass = annotatedClasses.parallelStream()
           .map(e -> (TypeElement) e)
           .reduce(ConfigSpec.empty(), ConfigSpecReducer::accumulate, ConfigSpecReducer::combine);
 
