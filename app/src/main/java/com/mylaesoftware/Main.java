@@ -8,6 +8,9 @@ public class Main {
   interface Config extends MyConfig, MyOtherConfig {
   }
 
+  @com.mylaesoftware.Config
+  interface Bar { }
+
   public static void main(String[] args) {
     Config config = new GlobalConfig(ConfigFactory.load());
 
