@@ -1,5 +1,6 @@
 package com.mylaesoftware;
 
+import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.mylaesoftware.specs.ConfigSpec;
 import com.mylaesoftware.specs.ConfigSpecReducer;
 import com.squareup.javapoet.JavaFile;
@@ -60,8 +61,8 @@ public class ConfigProcessor extends AbstractProcessor {
           .reduce(ConfigSpec.empty(), ConfigSpecReducer::accumulate, ConfigSpecReducer::combine);
 
       JavaFile.builder(configClass.packageName(), configClass.build()).build().writeTo(filer);
-    } catch (RuntimeException rte) {
-      messager.printMessage(Kind.ERROR, rte.getMessage());
+    } catch (AnnotationProcessingException ape) {
+      messager.printMessage(Kind.ERROR, ape.getMessage());
     } catch (IOException ioe) {
       messager.printMessage(Kind.WARNING, ioe.getMessage());
     }

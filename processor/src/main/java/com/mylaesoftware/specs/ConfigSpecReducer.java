@@ -2,6 +2,7 @@ package com.mylaesoftware.specs;
 
 import com.mylaesoftware.Config;
 import com.mylaesoftware.ConfigValue;
+import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeSpec;
 import com.sun.tools.javac.code.Symbol;
@@ -25,7 +26,7 @@ public class ConfigSpecReducer {
 
   public static ConfigSpec accumulate(ConfigSpec spec, TypeElement element) {
     if (!element.getKind().isInterface()) {
-      throw new RuntimeException(Config.class.getSimpleName() + " can only be used on interfaces");
+      throw new AnnotationProcessingException(Config.class.getSimpleName() + " annotation can only be used on interfaces");
     }
 
     String rootKey = Optional.ofNullable(element.getAnnotation(Config.class)).map(Config::rootKey).orElse("");
