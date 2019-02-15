@@ -1,6 +1,6 @@
 package com.mylaesoftware;
 
-@Config
+@ConfigType
 interface TestInterface {
 
   @ConfigValue(atKey = "someKey")
