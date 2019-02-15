@@ -17,6 +17,8 @@ import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.util.function.Consumer;
 
+import static com.mylaesoftware.Annotations.CONFIG_TYPE;
+import static com.mylaesoftware.Annotations.CONFIG_VALUE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,17 +34,14 @@ public class ConfigProcessorTest {
   private static final String CONFIG_FIELD_NAME = "property";
   private static final String NON_CONFIG_FIELD_NAME = "other";
 
-  private static final String CONFIG_ANNOTATION = Config.class.getSimpleName();
-  private static final String CONFIG_VALUE_ANNOTATION = ConfigValue.class.getSimpleName();
-
   private static final String DEFAULT_INPUT = String.format(
-      "import com.mylaesoftware." + CONFIG_ANNOTATION + ";\n" +
-          "import com.mylaesoftware." + CONFIG_VALUE_ANNOTATION + ";\n" +
+      "import com.mylaesoftware." + CONFIG_TYPE.name + ";\n" +
+          "import com.mylaesoftware." + CONFIG_VALUE.name + ";\n" +
           "\n" +
-          "@" + CONFIG_ANNOTATION + "\n" +
+          "@" + CONFIG_TYPE.name + "\n" +
           "interface %s {\n" +
           "\n" +
-          "  @" + CONFIG_VALUE_ANNOTATION + "(atKey = \"%s\")\n" +
+          "  @" + CONFIG_VALUE.name + "(atKey = \"%s\")\n" +
           "  %s %s();\n" +
           "  default String %s() {return \"\";}\n" +
           "\n" +
@@ -144,34 +143,56 @@ public class ConfigProcessorTest {
     public void generateErrorIfConfigAnnotationUsedOnClasses() {
       String className = "Foo";
       String input = String.format(
-          "import com.mylaesoftware." + CONFIG_ANNOTATION + ";\n" +
+          "import com.mylaesoftware." + CONFIG_TYPE.name + ";\n" +
               "\n" +
-              "@" + CONFIG_ANNOTATION + "\n" +
+              "@" + CONFIG_TYPE.name + "\n" +
               "class %s {}\n", className);
 
       withFailedCompilation(className, input, errors -> {
         assertThat(errors).hasSize(1);
         DiagnosticAssert.assertThat(errors.get(0))
-            .isErrorContaining(CONFIG_ANNOTATION + " annotation can only be used on interfaces", className);
+            .isErrorContaining(CONFIG_TYPE.name + " annotation can only be used on interfaces", className);
       });
     }
 
     @Test
     public void generateErrorIfConfigValueAnnotationUsedOnNonAnnotatedType() {
       String className = "Foo";
+      String methodName = "stringValue";
       String input = String.format(
-          "import com.mylaesoftware." + CONFIG_VALUE_ANNOTATION + ";\n" +
+          "import com.mylaesoftware." + CONFIG_VALUE.name + ";\n" +
               "\n" +
               "interface %s {\n" +
-              "@" + CONFIG_VALUE_ANNOTATION + "(atKey = \"any\")\n" +
-              "String stringValue();\n" +
-              "}\n", className);
+              "@" + CONFIG_VALUE.name + "(atKey = \"any\")\n" +
+              "String %s();\n" +
+              "}\n", className, methodName);
 
       withFailedCompilation(className, input, errors -> {
         assertThat(errors).hasSize(1);
         DiagnosticAssert.assertThat(errors.get(0))
-            .isErrorContaining(CONFIG_VALUE_ANNOTATION + " annotation needs to be used inside a " +
-                CONFIG_ANNOTATION + " annotated type", className);
+            .isErrorContaining(CONFIG_VALUE.name + " needs to be enclosed by a type annotated with " +
+                CONFIG_TYPE.name, className, methodName);
+      });
+    }
+
+    @Test
+    public void generateErrorIfNonAnnotatedMethodInConfigInterfaceHasNoDefaultImplementation() {
+      String interfaceName = "Foo";
+      String methodName = "stringValue";
+      String input = String.format(
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "\n"+
+              "interface %s {\n" +
+              "\n" +
+              "String %s();\n" +
+              "}\n", interfaceName, methodName);
+
+      withFailedCompilation(interfaceName, input, errors -> {
+        assertThat(errors).hasSize(1);
+        DiagnosticAssert.assertThat(errors.get(0))
+            .isErrorContaining("Abstract method ", "needs to be annotated with " + CONFIG_VALUE.name,
+                "or have default implementation", interfaceName, methodName);
       });
     }
   }

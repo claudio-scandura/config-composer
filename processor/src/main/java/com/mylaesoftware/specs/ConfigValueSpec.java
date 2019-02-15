@@ -18,9 +18,9 @@ public class ConfigValueSpec {
   final MethodSpec initMethod;
   final MethodSpec overrideMethod;
 
-  public ConfigValueSpec(String rootKey, Symbol.MethodSymbol abstractMethod) {
+  public ConfigValueSpec(String rootKey, ConfigValue annotation, Symbol.MethodSymbol abstractMethod) {
     this.abstractMethod = abstractMethod;
-    this.configValueAnnotation = abstractMethod.getAnnotation(ConfigValue.class);
+    this.configValueAnnotation = annotation;
     String configKey = rootKey.isEmpty()
         ? configValueAnnotation.atKey()
         : rootKey.concat("." + configValueAnnotation.atKey());

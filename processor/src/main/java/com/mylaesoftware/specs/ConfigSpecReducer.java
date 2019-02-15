@@ -1,23 +1,27 @@
 package com.mylaesoftware.specs;
 
-import com.mylaesoftware.Config;
+import com.mylaesoftware.ConfigType;
 import com.mylaesoftware.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeSpec;
 import com.sun.tools.javac.code.Symbol;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.mylaesoftware.Annotations.CONFIG_VALUE;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.getCommonPrefix;
@@ -26,24 +30,26 @@ public class ConfigSpecReducer {
 
   public static ConfigSpec accumulate(ConfigSpec spec, TypeElement element) {
     if (!element.getKind().isInterface()) {
-      throw new AnnotationProcessingException(Config.class.getSimpleName() + " annotation can only be used on interfaces");
+      throw new AnnotationProcessingException(
+          ConfigType.class.getSimpleName() + " annotation can only be used on interfaces",
+          element
+      );
     }
 
-    String rootKey = Optional.ofNullable(element.getAnnotation(Config.class)).map(Config::rootKey).orElse("");
+    String rootKey = Optional.ofNullable(element.getAnnotation(ConfigType.class)).map(ConfigType::rootKey).orElse("");
     String packageName = ClassName.get(element).packageName();
 
     Set<TypeMirror> interfaces = new HashSet<>(singletonList(element.asType()));
-    Set<ConfigValueSpec> configReaders = element.getEnclosedElements().stream()
-        // non-annotated methods in config interface should have default impl otherwise fail.
-        .filter(e -> ElementKind.METHOD.equals(e.getKind()) && null != e.getAnnotation(ConfigValue.class))
-        .map(method -> new ConfigValueSpec(rootKey, (Symbol.MethodSymbol) method))
+    Set<ConfigValueSpec> configValues = element.getEnclosedElements().stream()
+        .filter(e -> ElementKind.METHOD.equals(e.getKind()))
+        .flatMap(toConfigValue(rootKey))
         .collect(toSet());
     return spec.isEmpty()
-        ? new ConfigSpec(packageName, interfaces, configReaders)
+        ? new ConfigSpec(packageName, interfaces, configValues)
         : new ConfigSpec(
         getCommonPrefix(packageName, spec.packageName),
         append(interfaces, spec.superInterfaces),
-        append(configReaders, spec.configValues));
+        append(configValues, spec.configValues));
   }
 
   public static ConfigSpec combine(ConfigSpec one, ConfigSpec other) {
@@ -78,6 +84,20 @@ public class ConfigSpecReducer {
 
   public static <T> Set<T> append(List<T> one, List<T> other) {
     return Stream.concat(one.stream(), other.stream()).collect(toSet());
+  }
+
+  private static Function<Element, Stream<ConfigValueSpec>> toConfigValue(String rootKey) {
+    return method -> {
+      if (method.getModifiers().contains(Modifier.DEFAULT)) {
+        return Stream.empty();
+      }
+      return Optional.ofNullable(method.getAnnotation(ConfigValue.class))
+          .map(annotation -> Stream.of(new ConfigValueSpec(rootKey, annotation, (Symbol.MethodSymbol) method)))
+          .orElseThrow(() ->
+              new AnnotationProcessingException("Abstract method needs to be annotated with " + CONFIG_VALUE.name +
+                  " or have default implementation", method)
+          );
+    };
   }
 
 }

@@ -4,11 +4,11 @@ import com.typesafe.config.ConfigFactory;
 
 public class Main {
 
-  @com.mylaesoftware.Config
+  @ConfigType
   interface Config extends MyConfig, MyOtherConfig {
   }
 
-  @com.mylaesoftware.Config
+  @ConfigType
   interface Bar { }
 
   public static void main(String[] args) {

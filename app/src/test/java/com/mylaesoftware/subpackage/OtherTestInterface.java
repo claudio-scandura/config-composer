@@ -1,8 +1,8 @@
 package com.mylaesoftware.subpackage;
 
-import com.mylaesoftware.Config;
+import com.mylaesoftware.ConfigType;
 
-@Config
+@ConfigType
 public interface OtherTestInterface {
 
 }
