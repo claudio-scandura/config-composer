@@ -1,11 +1,13 @@
 package com.mylaesoftware.specs;
 
-import com.mylaesoftware.Config;
+import com.mylaesoftware.ConfigType;
 import com.mylaesoftware.ConfigValue;
+import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeSpec;
 import com.sun.tools.javac.code.Symbol;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -15,59 +17,61 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.mylaesoftware.Annotations.CONFIG_VALUE;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.getCommonPrefix;
 
 public class ConfigSpecReducer {
 
-  public static final BiFunction<ConfigSpec, TypeElement, ConfigSpec> accumulator = (acc, element) -> {
+  public static ConfigSpec accumulate(ConfigSpec spec, TypeElement element) {
     if (!element.getKind().isInterface()) {
-      throw new RuntimeException("@Config can only be used on interfaces");
+      throw new AnnotationProcessingException(
+          ConfigType.class.getSimpleName() + " annotation can only be used on interfaces",
+          element
+      );
     }
 
-    String rootKey = Optional.ofNullable(element.getAnnotation(Config.class)).map(Config::rootKey).orElse("");
+    String rootKey = Optional.ofNullable(element.getAnnotation(ConfigType.class)).map(ConfigType::rootKey).orElse("");
     String packageName = ClassName.get(element).packageName();
 
     Set<TypeMirror> interfaces = new HashSet<>(singletonList(element.asType()));
-    Set<ConfigValueSpec> configReaders = element.getEnclosedElements().stream()
-        // non-annotated methods in config interface should have default impl otherwise fail.
-        .filter(e -> ElementKind.METHOD.equals(e.getKind()) && null != e.getAnnotation(ConfigValue.class))
-        .map(method -> new ConfigValueSpec(rootKey, (Symbol.MethodSymbol) method))
+    Set<ConfigValueSpec> configValues = element.getEnclosedElements().stream()
+        .filter(e -> ElementKind.METHOD.equals(e.getKind()))
+        .flatMap(toConfigValue(rootKey))
         .collect(toSet());
-    return acc.isEmpty()
-        ? new ConfigSpec(packageName, interfaces, configReaders)
+    return spec.isEmpty()
+        ? new ConfigSpec(packageName, interfaces, configValues)
         : new ConfigSpec(
-        getCommonPrefix(packageName, acc.packageName),
-        append(interfaces, acc.superInterfaces),
-        append(configReaders, acc.configValues));
-  };
+        getCommonPrefix(packageName, spec.packageName),
+        append(interfaces, spec.superInterfaces),
+        append(configValues, spec.configValues));
+  }
 
-
-  public static final BinaryOperator<ConfigSpec> combiner = (left, right) -> {
-    if (left.isEmpty()) {
-      return right;
+  public static ConfigSpec combine(ConfigSpec one, ConfigSpec other) {
+    if (one.isEmpty()) {
+      return other;
     }
-    if (right.isEmpty()) {
-      return left;
+    if (other.isEmpty()) {
+      return one;
     }
 
-    String packageName = getCommonPrefix(left.packageName, right.packageName);
+    String packageName = getCommonPrefix(one.packageName, other.packageName);
 
     return new ConfigSpec(packageName,
-        append(left.superInterfaces, right.superInterfaces),
-        append(left.configValues, right.configValues)
+        append(one.superInterfaces, other.superInterfaces),
+        append(one.configValues, other.configValues)
     );
-  };
+  }
 
-  public final static BinaryOperator<TypeSpec.Builder> specMerger = (left, right) -> {
+  public static final BinaryOperator<TypeSpec.Builder> specMerger = (left, right) -> {
     TypeSpec one = left.build();
     TypeSpec other = right.build();
-    return TypeSpec.classBuilder(ConfigSpec.className)
+    return TypeSpec.classBuilder(ConfigSpec.CLASS_NAME)
         .addModifiers(one.modifiers.toArray(new Modifier[0]))
         .addSuperinterfaces(one.superinterfaces)
         .addFields(append(one.fieldSpecs, other.fieldSpecs))
@@ -80,6 +84,20 @@ public class ConfigSpecReducer {
 
   public static <T> Set<T> append(List<T> one, List<T> other) {
     return Stream.concat(one.stream(), other.stream()).collect(toSet());
+  }
+
+  private static Function<Element, Stream<ConfigValueSpec>> toConfigValue(String rootKey) {
+    return method -> {
+      if (method.getModifiers().contains(Modifier.DEFAULT)) {
+        return Stream.empty();
+      }
+      return Optional.ofNullable(method.getAnnotation(ConfigValue.class))
+          .map(annotation -> Stream.of(new ConfigValueSpec(rootKey, annotation, (Symbol.MethodSymbol) method)))
+          .orElseThrow(() ->
+              new AnnotationProcessingException("Abstract method needs to be annotated with " + CONFIG_VALUE.name +
+                  " or have default implementation", method)
+          );
+    };
   }
 
 }

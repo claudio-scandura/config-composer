@@ -6,9 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 
-@Target( {ElementType.TYPE})
+@Target({ElementType.TYPE})
 @Retention(RetentionPolicy.SOURCE)
-public @interface Config {
+public @interface ConfigType {
 
   String rootKey() default "";
 

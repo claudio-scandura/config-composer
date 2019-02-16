@@ -4,12 +4,17 @@ import com.typesafe.config.ConfigFactory;
 
 public class Main {
 
-  @Config
-  interface MyConfig extends MyConfigClass, MyOtherConfig {}
+  @ConfigType
+  interface Config extends MyConfig, MyOtherConfig {
+  }
+
+  @ConfigType
+  interface Bar { }
 
   public static void main(String[] args) {
-      MyConfig config = new GlobalConfig(ConfigFactory.load());
+    Config config = new GlobalConfig(ConfigFactory.load());
 
-      System.out.println(config.getConfigValue() + " and " + config.getOtherConfigValue());
+    System.out.println(config.getConfigValue() + " and " + config.getConfigOtherValue());
+    System.out.println(config.getConfigValue() + " and " + config.getConfigOtherValue());
   }
 }

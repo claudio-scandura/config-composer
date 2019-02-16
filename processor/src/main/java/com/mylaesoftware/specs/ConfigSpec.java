@@ -7,7 +7,6 @@ import com.typesafe.config.Config;
 
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
-
 import java.util.Set;
 
 import static com.mylaesoftware.specs.ConfigSpecReducer.specMerger;
@@ -18,7 +17,7 @@ public class ConfigSpec {
 
   private static final ConfigSpec EMPTY = new ConfigSpec();
 
-  public static final String className = "GlobalConfig";
+  public static final String CLASS_NAME = "GlobalConfig";
 
   final String packageName;
   final Set<TypeMirror> superInterfaces;
@@ -41,7 +40,7 @@ public class ConfigSpec {
   }
 
   public TypeSpec build() {
-    TypeSpec.Builder builder = TypeSpec.classBuilder(ConfigSpec.className)
+    TypeSpec.Builder builder = TypeSpec.classBuilder(ConfigSpec.CLASS_NAME)
         .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
         .addSuperinterfaces(superInterfaces.stream().map(TypeName::get).collect(toList()));
 

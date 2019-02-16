@@ -3,16 +3,61 @@ buildscript {
 
 allprojects {
     apply plugin: "java"
-    apply plugin: 'idea'
+    apply plugin: "idea"
+    apply plugin: "checkstyle"
+
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
 
     repositories {
         jcenter()
         mavenCentral()
     }
-    
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
+
+    checkstyle {
+        toolVersion = "8.17"
+        maxWarnings = 0
+        maxErrors = 0
+    }
+
+    tasks.withType(Checkstyle) {
+
+        reports {
+            xml.enabled false
+            html.enabled true
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+
+        maxParallelForks = Runtime.runtime.availableProcessors()
+        
+        reports {
+            junitXml.enabled = false
+            html.enabled = true
+        }
+
+        // show standard out and standard error of the test JVM(s) on the console
+        testLogging {
+            showStandardStreams = project.hasProperty("show-logs")
+            events 'PASSED', 'FAILED', 'SKIPPED'
+        }
+
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                println "\nTest result: ${result.resultType}"
+                println "Test summary: ${result.testCount} tests, " +
+                        "${result.successfulTestCount} succeeded, " +
+                        "${result.failedTestCount} failed, " +
+                        "${result.skippedTestCount} skipped"
+            }
+        }
+    }
+
+
 }
+
 
 wrapper {
     gradleVersion = '5.2'
