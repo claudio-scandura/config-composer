@@ -182,7 +182,7 @@ public class ConfigProcessorTest {
       String input = String.format(
           "import " + CONFIG_TYPE.canonicalName + ";\n" +
               "\n" +
-              "@" + CONFIG_TYPE.name + "\n"+
+              "@" + CONFIG_TYPE.name + "\n" +
               "interface %s {\n" +
               "\n" +
               "String %s();\n" +
