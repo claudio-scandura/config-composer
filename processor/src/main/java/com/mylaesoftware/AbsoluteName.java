@@ -19,7 +19,7 @@ public class AbsoluteName {
         .substring(1);
   }
 
-  private final static Function<Element, String> toName = element -> {
+  private static final Function<Element, String> toName = element -> {
     String name = element.getSimpleName().toString().trim();
     if (element.getKind().equals(ElementKind.METHOD)) {
       return "::" + name;
