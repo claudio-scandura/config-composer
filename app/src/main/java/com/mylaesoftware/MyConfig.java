@@ -9,10 +9,10 @@ import java.time.Duration;
 @ConfigType
 public interface MyConfig {
 
-  @ConfigValue(atKey = "some.value")
+  @ConfigValue(atPath = "some.value")
   String getConfigValue();
 
-  @ConfigValue(atKey = "some.duration")
+  @ConfigValue(atPath = "some.duration")
   Duration getDuration();
 
 }

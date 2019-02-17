@@ -4,14 +4,14 @@ package com.mylaesoftware;
 import com.mylaesoftware.annotations.ConfigType;
 import com.mylaesoftware.annotations.ConfigValue;
 
-@ConfigType(rootKey = "some.other")
+@ConfigType(contextPath = "some.other")
 public interface MyOtherConfig {
 
-  @ConfigValue(atKey = "value")
+  @ConfigValue(atPath = "value")
   String getConfigOtherValue();
 
 
-  @ConfigValue(atKey = "value2", mapper = com.mylaesoftware.TestMapper.class)
+  @ConfigValue(atPath = "value2", mapper = com.mylaesoftware.TestMapper.class)
   TestObject getTestObject();
 
 }

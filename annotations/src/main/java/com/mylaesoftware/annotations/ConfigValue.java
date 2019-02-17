@@ -13,7 +13,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 public @interface ConfigValue {
 
-  String atKey();
+  String atPath();
 
   Class<? extends ConfigMapper<?>> mapper() default NoMapper.class;
 }

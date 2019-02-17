@@ -1,10 +1,10 @@
 package com.mylaesoftware.specs;
 
+import com.mylaesoftware.Annotations;
 import com.mylaesoftware.annotations.ConfigType;
 import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.squareup.javapoet.ClassName;
-import com.sun.tools.javac.code.Symbol;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -21,6 +21,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.mylaesoftware.Annotations.CONFIG_VALUE;
+import static com.sun.tools.javac.code.Symbol.MethodSymbol;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.commons.lang3.StringUtils.getCommonPrefix;
@@ -36,13 +37,13 @@ public class ConfigTypeSpecReducer {
   public ConfigTypeSpec accumulate(ConfigTypeSpec spec, TypeElement element) {
     if (!element.getKind().isInterface()) {
       throw new AnnotationProcessingException(
-          ConfigType.class.getSimpleName() + " annotation can only be used on interfaces",
+          Annotations.CONFIG_TYPE.name + " annotation can only be used on interfaces",
           element
       );
     }
 
-    String rootKey = Optional.ofNullable(element.getAnnotation(ConfigType.class))
-        .map(ConfigType::rootKey)
+    String contextPath = Optional.ofNullable(element.getAnnotation(ConfigType.class))
+        .map(ConfigType::contextPath)
         .orElse("");
 
     String packageName = ClassName.get(element).packageName();
@@ -50,7 +51,7 @@ public class ConfigTypeSpecReducer {
     Set<TypeMirror> interfaces = new HashSet<>(singletonList(element.asType()));
     Set<ConfigValueSpec> configValues = element.getEnclosedElements().stream()
         .filter(e -> ElementKind.METHOD.equals(e.getKind()))
-        .flatMap(toConfigValue(rootKey))
+        .flatMap(toConfigValue(contextPath))
         .collect(toSet());
 
     return spec.isEmpty()
@@ -92,7 +93,7 @@ public class ConfigTypeSpecReducer {
         return Stream.empty();
       }
       return Optional.ofNullable(method.getAnnotation(ConfigValue.class))
-          .map(annotation -> Stream.of(new ConfigValueSpec(rootKey, annotation, (Symbol.MethodSymbol) method, typeUtils)))
+          .map(annotation -> Stream.of(new ConfigValueSpec(rootKey, annotation, (MethodSymbol) method, typeUtils)))
           .orElseThrow(() ->
               new AnnotationProcessingException("Abstract method needs to be annotated with " + CONFIG_VALUE.name +
                   " or have default implementation", method)

@@ -21,7 +21,15 @@ import javax.lang.model.util.Types;
 import java.time.Duration;
 import java.util.Optional;
 
-import static com.mylaesoftware.mappers.BasicMappers.*;
+import static com.mylaesoftware.mappers.BasicMappers.AnyRefM;
+import static com.mylaesoftware.mappers.BasicMappers.BooleanM;
+import static com.mylaesoftware.mappers.BasicMappers.ConfigM;
+import static com.mylaesoftware.mappers.BasicMappers.ConfigValueM;
+import static com.mylaesoftware.mappers.BasicMappers.DoubleM;
+import static com.mylaesoftware.mappers.BasicMappers.DurationM;
+import static com.mylaesoftware.mappers.BasicMappers.IntM;
+import static com.mylaesoftware.mappers.BasicMappers.LongM;
+import static com.mylaesoftware.mappers.BasicMappers.NumberM;
 
 public class ConfigValueSpec {
 
@@ -37,8 +45,8 @@ public class ConfigValueSpec {
     this.abstractMethod = abstractMethod;
     this.configValueAnnotation = annotation;
     String configKey = rootKey.isEmpty()
-        ? configValueAnnotation.atKey()
-        : rootKey.concat("." + configValueAnnotation.atKey());
+        ? configValueAnnotation.atPath()
+        : rootKey.concat("." + configValueAnnotation.atPath());
 
     String methodName = abstractMethod.getSimpleName().toString();
     field = FieldSpec.builder(
