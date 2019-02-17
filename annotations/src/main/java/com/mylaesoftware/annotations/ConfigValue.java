@@ -1,20 +1,19 @@
 package com.mylaesoftware.annotations;
 
-import com.mylaesoftware.NoMapper;
-import com.typesafe.config.Config;
+import com.mylaesoftware.mappers.ConfigMapper;
+import com.mylaesoftware.mappers.NoMapper;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.function.BiFunction;
 
 
-@Target( {ElementType.METHOD})
+@Target({ElementType.METHOD})
 @Retention(RetentionPolicy.SOURCE)
 public @interface ConfigValue {
 
   String atKey();
 
-  Class<? extends BiFunction<Config, String, ?>> mapper() default NoMapper.class;
+  Class<? extends ConfigMapper<?>> mapper() default NoMapper.class;
 }
