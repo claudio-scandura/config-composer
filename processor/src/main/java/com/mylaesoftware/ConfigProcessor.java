@@ -66,7 +66,7 @@ public class ConfigProcessor extends AbstractProcessor {
     try {
       validateConfigValueAnnotatedElements(roundEnv.getElementsAnnotatedWith(ConfigValue.class));
 
-      ConfigTypeSpec configClass = annotatedClasses.parallelStream()
+      ConfigTypeSpec configClass = annotatedClasses.stream()
           .map(e -> (TypeElement) e)
           .reduce(ConfigTypeSpec.empty(), reducer::accumulate, reducer::combine);
 
@@ -110,7 +110,7 @@ public class ConfigProcessor extends AbstractProcessor {
 
     if (!duplicates.isEmpty()) {
       throw new AnnotationProcessingException(
-          CONFIG_VALUE.name  +
+          CONFIG_VALUE.name +
               " cannot be used on multiple methods with the same name in different config type definitions",
           duplicates
       );

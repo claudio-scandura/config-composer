@@ -7,6 +7,7 @@ import com.mylaesoftware.mappers.BasicMappers.StringM;
 import com.mylaesoftware.mappers.NoMapper;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.sun.tools.javac.code.Symbol;
 import com.typesafe.config.Config;
@@ -19,6 +20,7 @@ import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.util.Types;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 import static com.mylaesoftware.mappers.BasicMappers.AnyRefM;
@@ -30,6 +32,15 @@ import static com.mylaesoftware.mappers.BasicMappers.DurationM;
 import static com.mylaesoftware.mappers.BasicMappers.IntM;
 import static com.mylaesoftware.mappers.BasicMappers.LongM;
 import static com.mylaesoftware.mappers.BasicMappers.NumberM;
+import static com.mylaesoftware.mappers.CollectionsMappers.AnyRefListM;
+import static com.mylaesoftware.mappers.CollectionsMappers.BooleanListM;
+import static com.mylaesoftware.mappers.CollectionsMappers.ConfigListM;
+import static com.mylaesoftware.mappers.CollectionsMappers.DoubleListM;
+import static com.mylaesoftware.mappers.CollectionsMappers.DurationListM;
+import static com.mylaesoftware.mappers.CollectionsMappers.IntListM;
+import static com.mylaesoftware.mappers.CollectionsMappers.LongListM;
+import static com.mylaesoftware.mappers.CollectionsMappers.NumberListM;
+import static com.mylaesoftware.mappers.CollectionsMappers.StringListM;
 
 public class ConfigValueSpec {
 
@@ -103,6 +114,7 @@ public class ConfigValueSpec {
 
 
   private String basicMapperFor(TypeName type) {
+    type = type.isBoxedPrimitive() ? type.unbox() : type;
     if (type.toString().equals(Config.class.getCanonicalName())) {
       return ConfigM.class.getCanonicalName();
     }
@@ -133,6 +145,39 @@ public class ConfigValueSpec {
     if (type.equals(TypeName.OBJECT)) {
       return AnyRefM.class.getCanonicalName();
     }
+
+    return collectionMapperFor(type);
+  }
+
+  private String collectionMapperFor(TypeName type) {
+    if (type.equals(ParameterizedTypeName.get(List.class, Config.class))) {
+      return ConfigListM.class.getCanonicalName();
+    }
+    if (type.equals(ParameterizedTypeName.get(List.class, Duration.class))) {
+      return DurationListM.class.getCanonicalName();
+    }
+    if (type.equals(ParameterizedTypeName.get(List.class, Boolean.class))) {
+      return BooleanListM.class.getCanonicalName();
+    }
+    if (type.equals(ParameterizedTypeName.get(List.class, Integer.class))) {
+      return IntListM.class.getCanonicalName();
+    }
+    if (type.equals(ParameterizedTypeName.get(List.class, Long.class))) {
+      return LongListM.class.getCanonicalName();
+    }
+    if (type.equals(ParameterizedTypeName.get(List.class, Number.class))) {
+      return NumberListM.class.getCanonicalName();
+    }
+    if (type.equals(ParameterizedTypeName.get(List.class, Double.class))) {
+      return DoubleListM.class.getCanonicalName();
+    }
+    if (type.equals(ParameterizedTypeName.get(List.class, String.class))) {
+      return StringListM.class.getCanonicalName();
+    }
+    if (type.equals(ParameterizedTypeName.get(List.class, Object.class))) {
+      return AnyRefListM.class.getCanonicalName();
+    }
+
     throw new AnnotationProcessingException(
         String.format("Unsupported config value type '%s'. Please provide a custom mapper", type),
         abstractMethod
