@@ -15,4 +15,9 @@ public interface MyConfig {
   @ConfigValue(atPath = "some.duration")
   Duration getDuration();
 
+  @ConfigValue(atPath = "some.int")
+  int getInt();
+
+  @ConfigValue(atPath = "some.integer")
+  Integer getInteger();
 }
