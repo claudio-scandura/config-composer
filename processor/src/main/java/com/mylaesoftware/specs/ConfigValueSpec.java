@@ -1,9 +1,10 @@
 package com.mylaesoftware.specs;
 
 import com.mylaesoftware.Annotations;
-import com.mylaesoftware.NoMapper;
 import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
+import com.mylaesoftware.mappers.BasicMappers.StringM;
+import com.mylaesoftware.mappers.NoMapper;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
@@ -12,11 +13,15 @@ import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.util.Types;
 
+import java.time.Duration;
 import java.util.Optional;
+
+import static com.mylaesoftware.mappers.BasicMappers.*;
 
 public class ConfigValueSpec {
 
@@ -71,29 +76,14 @@ public class ConfigValueSpec {
   }
 
   private String buildInitStatement() {
-    return customMapperType()
+    String mapper = customMapper()
         .map(TypeElement::getQualifiedName)
-        .map(name -> String.format("return new %s().apply(config, \"$L\")", name))
-        .orElseGet(() -> "return config." + mapperFor(field.type) + "(\"$L\")");
+        .map(Name::toString)
+        .orElseGet(() -> basicMapperFor(field.type));
+    return String.format("return new %s().apply(config, \"$L\")", mapper);
   }
 
-  private String mapperFor(TypeName type) {
-    if (type.equals(TypeName.BOOLEAN)) {
-      return "getBoolean";
-    }
-    if (type.equals(TypeName.INT)) {
-      return "getInt";
-    }
-    if (type.equals(TypeName.get(String.class))) {
-      return "getString";
-    }
-    throw new AnnotationProcessingException(
-        String.format("Unsupported config value type '%s'. Please provide a custom mapper", type),
-        abstractMethod
-    );
-  }
-
-  private Optional<TypeElement> customMapperType() {
+  private Optional<TypeElement> customMapper() {
     try {
       configValueAnnotation.mapper();
     } catch (MirroredTypeException mte) {
@@ -101,6 +91,44 @@ public class ConfigValueSpec {
           .filter(te -> !te.getQualifiedName().toString().equals(NoMapper.class.getCanonicalName()));
     }
     throw new RuntimeException("Cannot find type element for mapper field in " + Annotations.CONFIG_VALUE.name);
+  }
+
+
+  private String basicMapperFor(TypeName type) {
+    if (type.toString().equals(Config.class.getCanonicalName())) {
+      return ConfigM.class.getCanonicalName();
+    }
+    if (type.toString().equals(com.typesafe.config.ConfigValue.class.getCanonicalName())) {
+      return ConfigValueM.class.getCanonicalName();
+    }
+    if (type.toString().equals(Duration.class.getCanonicalName())) {
+      return DurationM.class.getCanonicalName();
+    }
+    if (type.equals(TypeName.BOOLEAN)) {
+      return BooleanM.class.getCanonicalName();
+    }
+    if (type.equals(TypeName.INT)) {
+      return IntM.class.getCanonicalName();
+    }
+    if (type.equals(TypeName.LONG)) {
+      return LongM.class.getCanonicalName();
+    }
+    if (type.toString().equals(Number.class.getCanonicalName())) {
+      return NumberM.class.getCanonicalName();
+    }
+    if (type.equals(TypeName.DOUBLE)) {
+      return DoubleM.class.getCanonicalName();
+    }
+    if (type.equals(TypeName.get(String.class))) {
+      return StringM.class.getCanonicalName();
+    }
+    if (type.equals(TypeName.OBJECT)) {
+      return AnyRefM.class.getCanonicalName();
+    }
+    throw new AnnotationProcessingException(
+        String.format("Unsupported config value type '%s'. Please provide a custom mapper", type),
+        abstractMethod
+    );
   }
 
 }
