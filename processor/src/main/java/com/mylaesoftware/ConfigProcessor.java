@@ -1,8 +1,10 @@
 package com.mylaesoftware;
 
+import com.mylaesoftware.annotations.ConfigType;
+import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
-import com.mylaesoftware.specs.ConfigSpec;
-import com.mylaesoftware.specs.ConfigSpecReducer;
+import com.mylaesoftware.specs.ConfigTypeSpec;
+import com.mylaesoftware.specs.ConfigTypeSpecReducer;
 import com.squareup.javapoet.JavaFile;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -32,6 +34,7 @@ public class ConfigProcessor extends AbstractProcessor {
 
   private Filer filer;
   private Messager messager;
+  private ConfigTypeSpecReducer reducer;
   private final Set<Element> annotatedClasses = Collections.synchronizedSet(new HashSet<>());
 
   @Override
@@ -39,6 +42,7 @@ public class ConfigProcessor extends AbstractProcessor {
     super.init(processingEnv);
     filer = processingEnv.getFiler();
     messager = processingEnv.getMessager();
+    reducer = new ConfigTypeSpecReducer(processingEnv.getTypeUtils());
   }
 
   @Override
@@ -62,9 +66,9 @@ public class ConfigProcessor extends AbstractProcessor {
     try {
       validateConfigValueAnnotatedElements(roundEnv.getElementsAnnotatedWith(ConfigValue.class));
 
-      ConfigSpec configClass = annotatedClasses.parallelStream()
+      ConfigTypeSpec configClass = annotatedClasses.parallelStream()
           .map(e -> (TypeElement) e)
-          .reduce(ConfigSpec.empty(), ConfigSpecReducer::accumulate, ConfigSpecReducer::combine);
+          .reduce(ConfigTypeSpec.empty(), reducer::accumulate, reducer::combine);
 
       JavaFile.builder(configClass.packageName(), configClass.build()).build().writeTo(filer);
     } catch (AnnotationProcessingException ape) {

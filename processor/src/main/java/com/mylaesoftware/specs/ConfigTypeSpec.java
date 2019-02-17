@@ -8,28 +8,38 @@ import com.typesafe.config.Config;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
 import java.util.Set;
+import java.util.function.BinaryOperator;
 
-import static com.mylaesoftware.specs.ConfigSpecReducer.specMerger;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 
-public class ConfigSpec {
+public class ConfigTypeSpec {
 
-  private static final ConfigSpec EMPTY = new ConfigSpec();
+  private static final ConfigTypeSpec EMPTY = new ConfigTypeSpec();
 
   public static final String CLASS_NAME = "GlobalConfig";
+
+  public static final BinaryOperator<TypeSpec.Builder> specMerger = (left, right) -> {
+    TypeSpec one = left.build();
+    TypeSpec other = right.build();
+    return TypeSpec.classBuilder(CLASS_NAME)
+        .addModifiers(one.modifiers.toArray(new Modifier[0]))
+        .addSuperinterfaces(one.superinterfaces)
+        .addFields(ConfigTypeSpecReducer.append(one.fieldSpecs, other.fieldSpecs))
+        .addMethods(ConfigTypeSpecReducer.append(one.methodSpecs, other.methodSpecs));
+  };
 
   final String packageName;
   final Set<TypeMirror> superInterfaces;
   final Set<ConfigValueSpec> configValues;
 
-  private ConfigSpec() {
+  private ConfigTypeSpec() {
     packageName = "";
     superInterfaces = emptySet();
     configValues = emptySet();
   }
 
-  public ConfigSpec(String packageName, Set<TypeMirror> superInterfaces, Set<ConfigValueSpec> configValues) {
+  public ConfigTypeSpec(String packageName, Set<TypeMirror> superInterfaces, Set<ConfigValueSpec> configValues) {
     this.packageName = packageName;
     this.superInterfaces = superInterfaces;
     this.configValues = configValues;
@@ -40,7 +50,7 @@ public class ConfigSpec {
   }
 
   public TypeSpec build() {
-    TypeSpec.Builder builder = TypeSpec.classBuilder(ConfigSpec.CLASS_NAME)
+    TypeSpec.Builder builder = TypeSpec.classBuilder(ConfigTypeSpec.CLASS_NAME)
         .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
         .addSuperinterfaces(superInterfaces.stream().map(TypeName::get).collect(toList()));
 
@@ -62,7 +72,7 @@ public class ConfigSpec {
     ).build();
   }
 
-  public static ConfigSpec empty() {
+  public static ConfigTypeSpec empty() {
     return EMPTY;
   }
 

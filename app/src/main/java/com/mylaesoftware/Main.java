@@ -1,5 +1,6 @@
 package com.mylaesoftware;
 
+import com.mylaesoftware.annotations.ConfigType;
 import com.typesafe.config.ConfigFactory;
 
 public class Main {
@@ -15,6 +16,6 @@ public class Main {
     Config config = new GlobalConfig(ConfigFactory.load());
 
     System.out.println(config.getConfigValue() + " and " + config.getConfigOtherValue());
-    System.out.println(config.getConfigValue() + " and " + config.getConfigOtherValue());
+    System.out.println(config.getTestObject());
   }
 }

@@ -1,6 +1,9 @@
 package com.mylaesoftware.specs;
 
-import com.mylaesoftware.ConfigValue;
+import com.mylaesoftware.Annotations;
+import com.mylaesoftware.NoMapper;
+import com.mylaesoftware.annotations.ConfigValue;
+import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
@@ -9,16 +12,23 @@ import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.MirroredTypeException;
+import javax.lang.model.util.Types;
+
+import java.util.Optional;
 
 public class ConfigValueSpec {
 
+  private final Types typeUtils;
   final Symbol.MethodSymbol abstractMethod;
   final ConfigValue configValueAnnotation;
   final FieldSpec field;
   final MethodSpec initMethod;
   final MethodSpec overrideMethod;
 
-  public ConfigValueSpec(String rootKey, ConfigValue annotation, Symbol.MethodSymbol abstractMethod) {
+  public ConfigValueSpec(String rootKey, ConfigValue annotation, Symbol.MethodSymbol abstractMethod, Types typeUtils) {
+    this.typeUtils = typeUtils;
     this.abstractMethod = abstractMethod;
     this.configValueAnnotation = annotation;
     String configKey = rootKey.isEmpty()
@@ -37,7 +47,7 @@ public class ConfigValueSpec {
         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
         .addParameter(Config.class, "config", Modifier.FINAL)
         .returns(field.type)
-        .addStatement("return config." + typesafeParserFor(field.type) + "(\"$L\")", configKey)
+        .addStatement(buildInitStatement(), configKey)
         .build();
 
     overrideMethod = MethodSpec.methodBuilder(methodName)
@@ -60,7 +70,14 @@ public class ConfigValueSpec {
     return overrideMethod;
   }
 
-  private String typesafeParserFor(TypeName type) {
+  private String buildInitStatement() {
+    return customMapperType()
+        .map(TypeElement::getQualifiedName)
+        .map(name -> String.format("return new %s().apply(config, \"$L\")", name))
+        .orElseGet(() -> "return config." + mapperFor(field.type) + "(\"$L\")");
+  }
+
+  private String mapperFor(TypeName type) {
     if (type.equals(TypeName.BOOLEAN)) {
       return "getBoolean";
     }
@@ -70,6 +87,20 @@ public class ConfigValueSpec {
     if (type.equals(TypeName.get(String.class))) {
       return "getString";
     }
-    throw new RuntimeException("No Typesafe parsing method for type: " + type);
+    throw new AnnotationProcessingException(
+        String.format("Unsupported config value type '%s'. Please provide a custom mapper", type),
+        abstractMethod
+    );
   }
+
+  private Optional<TypeElement> customMapperType() {
+    try {
+      configValueAnnotation.mapper();
+    } catch (MirroredTypeException mte) {
+      return Optional.of((TypeElement) typeUtils.asElement(mte.getTypeMirror()))
+          .filter(te -> !te.getQualifiedName().toString().equals(NoMapper.class.getCanonicalName()));
+    }
+    throw new RuntimeException("Cannot find type element for mapper field in " + Annotations.CONFIG_VALUE.name);
+  }
+
 }
