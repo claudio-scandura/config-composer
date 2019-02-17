@@ -16,7 +16,8 @@ public class Main {
   public static void main(String[] args) {
     Config config = new GlobalConfig(ConfigFactory.load());
 
-    System.out.println(config.getConfigValue() + " and " + config.getList());
+    System.out.println(config.getConfigValue() + " and " +
+        config.getList() + " and " + config.getDuration() + "and " + config.getInt());
     System.out.println(config.getTestObject());
   }
 }

@@ -5,16 +5,17 @@ import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.mylaesoftware.mappers.BasicMappers.StringM;
 import com.mylaesoftware.mappers.NoMapper;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
-import com.sun.tools.javac.code.Symbol;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.util.Types;
@@ -41,23 +42,24 @@ import static com.mylaesoftware.mappers.CollectionsMappers.IntListM;
 import static com.mylaesoftware.mappers.CollectionsMappers.LongListM;
 import static com.mylaesoftware.mappers.CollectionsMappers.NumberListM;
 import static com.mylaesoftware.mappers.CollectionsMappers.StringListM;
+import static com.sun.tools.javac.code.Symbol.MethodSymbol;
 
 public class ConfigValueSpec {
 
   private final Types typeUtils;
-  final Symbol.MethodSymbol abstractMethod;
+  final MethodSymbol abstractMethod;
   final ConfigValue configValueAnnotation;
   final FieldSpec field;
   final MethodSpec initMethod;
   final MethodSpec overrideMethod;
 
-  public ConfigValueSpec(String rootKey, ConfigValue annotation, Symbol.MethodSymbol abstractMethod, Types typeUtils) {
+  public ConfigValueSpec(String contextPath, ConfigValue annotation, MethodSymbol abstractMethod, Types typeUtils) {
     this.typeUtils = typeUtils;
     this.abstractMethod = abstractMethod;
     this.configValueAnnotation = annotation;
-    String configKey = rootKey.isEmpty()
+    String configPath = contextPath.isEmpty()
         ? configValueAnnotation.atPath()
-        : rootKey.concat("." + configValueAnnotation.atPath());
+        : contextPath.concat("." + configValueAnnotation.atPath());
 
     String methodName = abstractMethod.getSimpleName().toString();
     field = FieldSpec.builder(
@@ -71,7 +73,7 @@ public class ConfigValueSpec {
         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
         .addParameter(Config.class, "config", Modifier.FINAL)
         .returns(field.type)
-        .addStatement(buildInitStatement(), configKey)
+        .addCode(buildInitStatement(configPath, isOptionalField()))
         .build();
 
     overrideMethod = MethodSpec.methodBuilder(methodName)
@@ -94,88 +96,104 @@ public class ConfigValueSpec {
     return overrideMethod;
   }
 
-  private String buildInitStatement() {
-    String mapper = customMapper()
-        .map(TypeElement::getQualifiedName)
-        .map(Name::toString)
-        .orElseGet(() -> basicMapperFor(field.type));
-    return String.format("return new %s().apply(config, \"$L\")", mapper);
+  private boolean isOptionalField() {
+    return ParameterizedTypeName.class.equals(field.type.getClass())
+        && ((ParameterizedTypeName) field.type).rawType.equals(ClassName.get(Optional.class));
   }
 
-  private Optional<TypeElement> customMapper() {
+  private CodeBlock buildInitStatement(String configPath, boolean isOptional) {
+    TypeName typeName = isOptional ? ((ParameterizedTypeName) field.type).typeArguments.get(0) : field.type;
+
+    ClassName mapper = customMapper().orElseGet(() -> mapperFor(typeName));
+    String returnStmt = "new $T().apply(config, \"$L\")";
+    CodeBlock.Builder builder = CodeBlock.builder();
+
+    if (isOptional) {
+      return builder.beginControlFlow("try")
+          .addStatement("return Optional.of(" + returnStmt + ")", mapper, configPath)
+          .nextControlFlow("catch ($T e)", ConfigException.class)
+          .addStatement("return Optional.empty()")
+          .endControlFlow()
+          .build();
+    }
+    return builder.addStatement("return " + returnStmt, mapper, configPath).build();
+  }
+
+  private Optional<ClassName> customMapper() {
     try {
       configValueAnnotation.mapper();
     } catch (MirroredTypeException mte) {
       return Optional.of((TypeElement) typeUtils.asElement(mte.getTypeMirror()))
-          .filter(te -> !te.getQualifiedName().toString().equals(NoMapper.class.getCanonicalName()));
+          .filter(te -> !te.getQualifiedName().toString().equals(NoMapper.class.getCanonicalName()))
+          .map(ClassName::get);
     }
     throw new RuntimeException("Cannot find type element for mapper field in " + Annotations.CONFIG_VALUE.name);
   }
 
 
-  private String basicMapperFor(TypeName type) {
+  private ClassName mapperFor(TypeName type) {
     type = type.isBoxedPrimitive() ? type.unbox() : type;
     if (type.toString().equals(Config.class.getCanonicalName())) {
-      return ConfigM.class.getCanonicalName();
+      return ClassName.get(ConfigM.class);
     }
     if (type.toString().equals(com.typesafe.config.ConfigValue.class.getCanonicalName())) {
-      return ConfigValueM.class.getCanonicalName();
+      return ClassName.get(ConfigValueM.class);
     }
     if (type.toString().equals(Duration.class.getCanonicalName())) {
-      return DurationM.class.getCanonicalName();
+      return ClassName.get(DurationM.class);
     }
     if (type.equals(TypeName.BOOLEAN)) {
-      return BooleanM.class.getCanonicalName();
+      return ClassName.get(BooleanM.class);
     }
     if (type.equals(TypeName.INT)) {
-      return IntM.class.getCanonicalName();
+      return ClassName.get(IntM.class);
     }
     if (type.equals(TypeName.LONG)) {
-      return LongM.class.getCanonicalName();
+      return ClassName.get(LongM.class);
     }
     if (type.toString().equals(Number.class.getCanonicalName())) {
-      return NumberM.class.getCanonicalName();
+      return ClassName.get(NumberM.class);
     }
     if (type.equals(TypeName.DOUBLE)) {
-      return DoubleM.class.getCanonicalName();
+      return ClassName.get(DoubleM.class);
     }
     if (type.equals(TypeName.get(String.class))) {
-      return StringM.class.getCanonicalName();
+      return ClassName.get(StringM.class);
     }
     if (type.equals(TypeName.OBJECT)) {
-      return AnyRefM.class.getCanonicalName();
+      return ClassName.get(AnyRefM.class);
     }
 
     return collectionMapperFor(type);
   }
 
-  private String collectionMapperFor(TypeName type) {
+  private ClassName collectionMapperFor(TypeName type) {
     if (type.equals(ParameterizedTypeName.get(List.class, Config.class))) {
-      return ConfigListM.class.getCanonicalName();
+      return ClassName.get(ConfigListM.class);
     }
     if (type.equals(ParameterizedTypeName.get(List.class, Duration.class))) {
-      return DurationListM.class.getCanonicalName();
+      return ClassName.get(DurationListM.class);
     }
     if (type.equals(ParameterizedTypeName.get(List.class, Boolean.class))) {
-      return BooleanListM.class.getCanonicalName();
+      return ClassName.get(BooleanListM.class);
     }
     if (type.equals(ParameterizedTypeName.get(List.class, Integer.class))) {
-      return IntListM.class.getCanonicalName();
+      return ClassName.get(IntListM.class);
     }
     if (type.equals(ParameterizedTypeName.get(List.class, Long.class))) {
-      return LongListM.class.getCanonicalName();
+      return ClassName.get(LongListM.class);
     }
     if (type.equals(ParameterizedTypeName.get(List.class, Number.class))) {
-      return NumberListM.class.getCanonicalName();
+      return ClassName.get(NumberListM.class);
     }
     if (type.equals(ParameterizedTypeName.get(List.class, Double.class))) {
-      return DoubleListM.class.getCanonicalName();
+      return ClassName.get(DoubleListM.class);
     }
     if (type.equals(ParameterizedTypeName.get(List.class, String.class))) {
-      return StringListM.class.getCanonicalName();
+      return ClassName.get(StringListM.class);
     }
     if (type.equals(ParameterizedTypeName.get(List.class, Object.class))) {
-      return AnyRefListM.class.getCanonicalName();
+      return ClassName.get(AnyRefListM.class);
     }
 
     throw new AnnotationProcessingException(
