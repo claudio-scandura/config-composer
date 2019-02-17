@@ -10,6 +10,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 public @interface ConfigType {
 
-  String rootKey() default "";
+  String contextPath() default "";
 
 }

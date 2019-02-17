@@ -16,11 +16,16 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
 import java.io.IOException;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.mylaesoftware.Annotations.CONFIG_TYPE;
 import static com.mylaesoftware.Annotations.CONFIG_VALUE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.singletonMap;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -43,23 +48,27 @@ public class ConfigProcessorTest {
           "@" + CONFIG_TYPE.name + "\n" +
           "interface %s {\n" +
           "\n" +
-          "  @" + CONFIG_VALUE.name + "(atKey = \"%s\")\n" +
+          "  @" + CONFIG_VALUE.name + "(atPath = \"%s\")\n" +
           "  %s %s();\n" +
           "  default String %s() {return \"\";}\n" +
           "\n" +
           "}", INPUT_SOURCE_NAME, CONFIG_FIELD_KEY, CONFIG_FIELD_TYPE, CONFIG_FIELD_NAME, NON_CONFIG_FIELD_NAME);
 
-  private static void withCompiledSource(String inputSourceName, String inputSource, Consumer<Compilation> action) {
+  private static void withCompiledSource(Map<String, String> inputSources, Consumer<Compilation> action) {
     action.accept(
         Compiler.javac()
             .withProcessors(new ConfigProcessor())
-            .compile(JavaFileObjects.forSourceString(inputSourceName, inputSource))
+            .compile(
+                inputSources.entrySet().stream()
+                    .map(kv -> JavaFileObjects.forSourceString(kv.getKey(), kv.getValue()))
+                    .collect(Collectors.toList())
+            )
     );
   }
 
 
   private static void withSuccessfulCompilation(String inputSource, Consumer<String> testBody) {
-    withCompiledSource(INPUT_SOURCE_NAME, inputSource, result -> {
+    withCompiledSource(singletonMap(INPUT_SOURCE_NAME, inputSource), result -> {
       try {
         assertThat(result.status())
             .as("Compilation failed with: %s", result.errors())
@@ -75,9 +84,9 @@ public class ConfigProcessorTest {
     });
   }
 
-  private static void withFailedCompilation(String inputSourceName, String inputSource,
+  private static void withFailedCompilation(Map<String, String> inputSources,
                                             Consumer<ImmutableList<Diagnostic<? extends JavaFileObject>>> testBody) {
-    withCompiledSource(inputSourceName, inputSource, result -> {
+    withCompiledSource(inputSources, result -> {
 
       assertThat(result.status())
           .as("Compilation should have failed")
@@ -131,7 +140,7 @@ public class ConfigProcessorTest {
               .containsPattern("private static " + CONFIG_FIELD_TYPE +
                   " " + ANY_NAME + capitalize(CONFIG_FIELD_NAME) + "\\((final )?Config " + ANY_NAME + "\\)")
               .containsPattern(
-                  "return " + ANY_NAME + "\\.get" + CONFIG_FIELD_TYPE + "\\(\"" + CONFIG_FIELD_KEY + "\"\\)"
+                  "return new [a-zA-Z0-9_\\.]+\\(\\)\\.apply\\(" + ANY_NAME + ", \"" + CONFIG_FIELD_KEY + "\"\\)"
               )
       );
 
@@ -150,7 +159,7 @@ public class ConfigProcessorTest {
               "@" + CONFIG_TYPE.name + "\n" +
               "class %s {}\n", className);
 
-      withFailedCompilation(className, input, errors -> {
+      withFailedCompilation(singletonMap(className, input), errors -> {
         assertThat(errors).hasSize(1);
         DiagnosticAssert.assertThat(errors.get(0))
             .isErrorContaining(CONFIG_TYPE.name + " annotation can only be used on interfaces", className);
@@ -165,11 +174,11 @@ public class ConfigProcessorTest {
           "import " + CONFIG_VALUE.canonicalName + ";\n" +
               "\n" +
               "interface %s {\n" +
-              "@" + CONFIG_VALUE.name + "(atKey = \"any\")\n" +
+              "@" + CONFIG_VALUE.name + "(atPath = \"any\")\n" +
               "String %s();\n" +
               "}\n", className, methodName);
 
-      withFailedCompilation(className, input, errors -> {
+      withFailedCompilation(singletonMap(className, input), errors -> {
         assertThat(errors).hasSize(1);
         DiagnosticAssert.assertThat(errors.get(0))
             .isErrorContaining(CONFIG_VALUE.name + " needs to be enclosed by a type annotated with " +
@@ -190,7 +199,7 @@ public class ConfigProcessorTest {
               "String %s();\n" +
               "}\n", interfaceName, methodName);
 
-      withFailedCompilation(interfaceName, input, errors -> {
+      withFailedCompilation(singletonMap(interfaceName, input), errors -> {
         assertThat(errors).hasSize(1);
         DiagnosticAssert.assertThat(errors.get(0))
             .isErrorContaining("Abstract method ", "needs to be annotated with " + CONFIG_VALUE.name,
@@ -202,22 +211,46 @@ public class ConfigProcessorTest {
     public void generateErrorIfAnnotatedMethodHasUnsupportedReturnedTypeAndNoCustomMapperIsGiven() {
       String interfaceName = "Foo";
       String methodName = "stringValue";
-      String unknownType = Object.class.getCanonicalName();
+      String unsupportedType = Date.class.getCanonicalName();
       String input = String.format(
           "import " + CONFIG_TYPE.canonicalName + ";\n" +
               "import " + CONFIG_VALUE.canonicalName + ";\n" +
               "\n" +
               "@" + CONFIG_TYPE.name + "\n" +
               "interface %s {\n" +
-              "@" + CONFIG_VALUE.name + "(atKey = \"any\")\n" +
+              "@" + CONFIG_VALUE.name + "(atPath = \"any\")\n" +
               "%s %s();\n" +
-              "}\n", interfaceName, unknownType, methodName);
+              "}\n", interfaceName, unsupportedType, methodName);
 
-      withFailedCompilation(interfaceName, input, errors -> {
+      withFailedCompilation(singletonMap(interfaceName, input), errors -> {
         assertThat(errors).hasSize(1);
         DiagnosticAssert.assertThat(errors.get(0))
-            .isErrorContaining("Unsupported config value type", unknownType, "provide a custom mapper",
+            .isErrorContaining("Unsupported config value type", unsupportedType, "provide a custom mapper",
                 interfaceName, methodName);
+      });
+    }
+
+    @Test
+    public void generateErrorIfAnnotatedMethodsNameHaveDuplicates() {
+      String interfaceName = "Foo";
+      String input = String.format(
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "\n" +
+              "interface %s {\n" +
+              "@" + CONFIG_VALUE.name + "(atPath = \"any\")\n" +
+              "%s %s();\n" +
+              "}\n", interfaceName, CONFIG_FIELD_TYPE, CONFIG_FIELD_NAME);
+
+      Map<String, String> sources = new HashMap<>();
+      sources.put(interfaceName, input);
+      sources.put(INPUT_SOURCE_NAME, DEFAULT_INPUT);
+      withFailedCompilation(sources, errors -> {
+        assertThat(errors).hasSize(1);
+        DiagnosticAssert.assertThat(errors.get(0))
+            .isErrorContaining("cannot be used on multiple methods with the same name",
+                CONFIG_FIELD_NAME, CONFIG_VALUE.name, interfaceName);
       });
     }
   }

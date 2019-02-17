@@ -101,5 +101,19 @@ public class ConfigProcessor extends AbstractProcessor {
           notInConfigTypes
       );
     }
+
+    List<Element> duplicates = elements.stream()
+        .collect(Collectors.groupingBy(Element::getSimpleName))
+        .values().stream().filter(list -> list.size() > 1)
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+
+    if (!duplicates.isEmpty()) {
+      throw new AnnotationProcessingException(
+          CONFIG_VALUE.name  +
+              " cannot be used on multiple methods with the same name in different config type definitions",
+          duplicates
+      );
+    }
   }
 }

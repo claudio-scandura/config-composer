@@ -6,7 +6,7 @@ import com.mylaesoftware.annotations.ConfigValue;
 @ConfigType
 interface TestInterface {
 
-  @ConfigValue(atKey = "someKey")
+  @ConfigValue(atPath = "someKey")
   String getWhatever();
 
   default String doNotOverrideThis() {
