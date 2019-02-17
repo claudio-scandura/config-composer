@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -145,6 +146,38 @@ public class ConfigProcessorTest {
       );
 
     }
+
+    @Test
+    public void generateClassThatImplementsStaticMethodToInitializeOptionalPropertyFields() {
+
+      String optionalFieldType = "Optional<String>";
+      String input = String.format(
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+              "import " + Optional.class.getCanonicalName() + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "\n" +
+              "interface %s {\n" +
+              "\n" +
+              "  @" + CONFIG_VALUE.name + "(atPath = \"%s\")\n" +
+              "  %s %s();\n" +
+              "\n" +
+              "}", INPUT_SOURCE_NAME, CONFIG_FIELD_KEY, optionalFieldType, CONFIG_FIELD_NAME);
+
+      withSuccessfulCompilation(input,
+          actualSource -> assertThat(actualSource.replaceAll("\\n", " "))
+              .contains("import " + Config.class.getCanonicalName())
+              .containsPattern("private static " + optionalFieldType +
+                  " " + ANY_NAME + capitalize(CONFIG_FIELD_NAME) + "\\((final )?Config " + ANY_NAME + "\\)")
+              .containsPattern(
+                  "new [a-zA-Z0-9_\\.]+\\(\\)\\.apply\\(" + ANY_NAME + ", \"" + CONFIG_FIELD_KEY + "\"\\)"
+              )
+              .contains("try {", "catch (ConfigException", "return Optional.empty()")
+
+      );
+
+    }
+
   }
 
   @Nested
