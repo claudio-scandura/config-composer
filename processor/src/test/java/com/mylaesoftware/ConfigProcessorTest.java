@@ -6,7 +6,8 @@ import com.google.testing.compile.Compilation.Status;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import com.mylaesoftware.assertions.DiagnosticAssert;
-import com.mylaesoftware.specs.ConfigSpec;
+import com.mylaesoftware.specs.ConfigTypeSpec;
+import com.typesafe.config.Config;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,9 +35,10 @@ public class ConfigProcessorTest {
   private static final String CONFIG_FIELD_NAME = "property";
   private static final String NON_CONFIG_FIELD_NAME = "other";
 
+
   private static final String DEFAULT_INPUT = String.format(
-      "import com.mylaesoftware." + CONFIG_TYPE.name + ";\n" +
-          "import com.mylaesoftware." + CONFIG_VALUE.name + ";\n" +
+      "import " + CONFIG_TYPE.canonicalName + ";\n" +
+          "import " + CONFIG_VALUE.canonicalName + ";\n" +
           "\n" +
           "@" + CONFIG_TYPE.name + "\n" +
           "interface %s {\n" +
@@ -91,7 +93,7 @@ public class ConfigProcessorTest {
     @Test
     public void generateClassWithExpectedNameAndModifiers() {
       withSuccessfulCompilation(DEFAULT_INPUT,
-          actualSource -> assertThat(actualSource).contains("public final class " + ConfigSpec.CLASS_NAME)
+          actualSource -> assertThat(actualSource).contains("public final class " + ConfigTypeSpec.CLASS_NAME)
       );
 
     }
@@ -113,7 +115,7 @@ public class ConfigProcessorTest {
 
       withSuccessfulCompilation(DEFAULT_INPUT,
           actualSource -> assertThat(actualSource.replaceAll("\\n", " "))
-              .contains(ConfigSpec.CLASS_NAME + " implements " + INPUT_SOURCE_NAME)
+              .contains(ConfigTypeSpec.CLASS_NAME + " implements " + INPUT_SOURCE_NAME)
               .containsPattern("\\@Override(\\s+)public " + CONFIG_FIELD_TYPE + " " + CONFIG_FIELD_NAME + "\\(\\)")
               .contains("return " + CONFIG_FIELD_NAME)
       );
@@ -125,7 +127,7 @@ public class ConfigProcessorTest {
 
       withSuccessfulCompilation(DEFAULT_INPUT,
           actualSource -> assertThat(actualSource.replaceAll("\\n", " "))
-              .contains("import com.typesafe.config.Config;")
+              .contains("import " + Config.class.getCanonicalName())
               .containsPattern("private static " + CONFIG_FIELD_TYPE +
                   " " + ANY_NAME + capitalize(CONFIG_FIELD_NAME) + "\\((final )?Config " + ANY_NAME + "\\)")
               .containsPattern(
@@ -143,7 +145,7 @@ public class ConfigProcessorTest {
     public void generateErrorIfConfigAnnotationUsedOnClasses() {
       String className = "Foo";
       String input = String.format(
-          "import com.mylaesoftware." + CONFIG_TYPE.name + ";\n" +
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
               "\n" +
               "@" + CONFIG_TYPE.name + "\n" +
               "class %s {}\n", className);
@@ -160,7 +162,7 @@ public class ConfigProcessorTest {
       String className = "Foo";
       String methodName = "stringValue";
       String input = String.format(
-          "import com.mylaesoftware." + CONFIG_VALUE.name + ";\n" +
+          "import " + CONFIG_VALUE.canonicalName + ";\n" +
               "\n" +
               "interface %s {\n" +
               "@" + CONFIG_VALUE.name + "(atKey = \"any\")\n" +
@@ -193,6 +195,29 @@ public class ConfigProcessorTest {
         DiagnosticAssert.assertThat(errors.get(0))
             .isErrorContaining("Abstract method ", "needs to be annotated with " + CONFIG_VALUE.name,
                 "or have default implementation", interfaceName, methodName);
+      });
+    }
+
+    @Test
+    public void generateErrorIfAnnotatedMethodHasUnsupportedReturnedTypeAndNoCustomMapperIsGiven() {
+      String interfaceName = "Foo";
+      String methodName = "stringValue";
+      String unknownType = Object.class.getCanonicalName();
+      String input = String.format(
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "\n" +
+              "interface %s {\n" +
+              "@" + CONFIG_VALUE.name + "(atKey = \"any\")\n" +
+              "%s %s();\n" +
+              "}\n", interfaceName, unknownType, methodName);
+
+      withFailedCompilation(interfaceName, input, errors -> {
+        assertThat(errors).hasSize(1);
+        DiagnosticAssert.assertThat(errors.get(0))
+            .isErrorContaining("Unsupported config value type", unknownType, "provide a custom mapper",
+                interfaceName, methodName);
       });
     }
   }
