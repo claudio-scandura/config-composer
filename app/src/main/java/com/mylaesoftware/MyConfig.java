@@ -5,6 +5,7 @@ import com.mylaesoftware.annotations.ConfigType;
 import com.mylaesoftware.annotations.ConfigValue;
 
 import java.time.Duration;
+import java.util.Optional;
 
 @ConfigType
 public interface MyConfig {
@@ -13,11 +14,9 @@ public interface MyConfig {
   String getConfigValue();
 
   @ConfigValue(atPath = "some.duration")
-  Duration getDuration();
+  Optional<Duration> getDuration();
 
   @ConfigValue(atPath = "some.int")
-  int getInt();
+  Optional<Integer> getInt();
 
-  @ConfigValue(atPath = "some.integer")
-  Integer getInteger();
 }
