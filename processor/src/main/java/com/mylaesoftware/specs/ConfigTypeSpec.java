@@ -7,6 +7,7 @@ import com.typesafe.config.Config;
 
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
+
 import java.util.Set;
 import java.util.function.BinaryOperator;
 
@@ -54,6 +55,7 @@ public class ConfigTypeSpec {
         .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
         .addSuperinterfaces(superInterfaces.stream().map(TypeName::get).collect(toList()));
 
+    //TODO: Parallelize this stream by copying builder at each step, rather then modifying base builder
     return configValues.parallelStream().reduce(builder,
         (b, spec) -> b.addField(spec.getField()).addMethod(spec.getInitMethod()).addMethod(spec.getOverrideMethod()),
         specMerger)
