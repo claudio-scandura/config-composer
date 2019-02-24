@@ -121,13 +121,13 @@ public class ConfigValueSpec {
 
   private Optional<ClassName> customMapper() {
     try {
-      configValueAnnotation.mapper();
+      configValueAnnotation.mappedBy();
     } catch (MirroredTypeException mte) {
       return Optional.of((TypeElement) typeUtils.asElement(mte.getTypeMirror()))
           .filter(te -> !te.getQualifiedName().toString().equals(NoMapper.class.getCanonicalName()))
           .map(ClassName::get);
     }
-    throw new RuntimeException("Cannot find type element for mapper field in " + Annotations.CONFIG_VALUE.name);
+    throw new RuntimeException("Cannot find type element for mappedBy field in " + Annotations.CONFIG_VALUE.name);
   }
 
 
