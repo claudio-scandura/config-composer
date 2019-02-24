@@ -15,5 +15,5 @@ public @interface ConfigValue {
 
   String atPath();
 
-  Class<? extends ConfigMapper<?>> mapper() default NoMapper.class;
+  Class<? extends ConfigMapper<?>> mappedBy() default NoMapper.class;
 }
