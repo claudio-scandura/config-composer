@@ -56,7 +56,7 @@ public class ConfigTypeSpec {
         .addSuperinterfaces(superInterfaces.stream().map(TypeName::get).collect(toList()));
 
     //TODO: Parallelize this stream by copying builder at each step, rather then modifying base builder
-    return configValues.parallelStream().reduce(builder,
+    return configValues.stream().reduce(builder,
         (b, spec) -> b.addField(spec.getField()).addMethod(spec.getInitMethod()).addMethod(spec.getOverrideMethod()),
         specMerger)
         .addMethod(buildConstructor())

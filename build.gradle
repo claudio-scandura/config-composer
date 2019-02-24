@@ -4,6 +4,7 @@ buildscript {
 allprojects {
     apply plugin: "java"
     apply plugin: "idea"
+    apply plugin: 'maven-publish'
     apply plugin: "checkstyle"
 
     sourceCompatibility = 1.8
@@ -32,7 +33,7 @@ allprojects {
         useJUnitPlatform()
 
         maxParallelForks = Runtime.runtime.availableProcessors()
-        
+
         reports {
             junitXml.enabled = false
             html.enabled = true
@@ -55,6 +56,15 @@ allprojects {
         }
     }
 
+    publishing {
+
+        publications {
+            mavenJava(MavenPublication) {
+                groupId 'com.mylaesoftware'
+                from components.java
+            }
+        }
+    }
 
 }
 

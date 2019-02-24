@@ -1,3 +1,7 @@
+plugins {
+    id 'java-library'
+}
+
 dependencies {
     implementation project(":annotations")
     implementation "org.apache.commons:commons-lang3:3.8.1"
@@ -12,3 +16,11 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.1.0"
 }
 
+publishing {
+
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId 'processor'
+        }
+    }
+}
