@@ -16,7 +16,7 @@ public interface MyOtherConfig {
   List<String> getList();
 
 
-  @ConfigValue(atPath = "value2", mapper = com.mylaesoftware.TestMapper.class)
+  @ConfigValue(atPath = "value2", mappedBy = com.mylaesoftware.TestMapper.class)
   TestObject getTestObject();
 
 }

@@ -6,9 +6,14 @@ import com.google.testing.compile.Compilation.Status;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import com.mylaesoftware.assertions.DiagnosticAssert;
+import com.mylaesoftware.mappers.BasicMappers;
+import com.mylaesoftware.mappers.ConfigMapper;
 import com.mylaesoftware.specs.ConfigTypeSpec;
+import com.mylaesoftware.validators.ConfigValidator;
+import com.mylaesoftware.validators.NonEmptyString;
 import com.typesafe.config.Config;
 import org.apache.commons.io.IOUtils;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -172,7 +177,7 @@ public class ConfigProcessorTest {
               .containsPattern(
                   "new [a-zA-Z0-9_\\.]+\\(\\)\\.apply\\(" + ANY_NAME + ", \"" + CONFIG_FIELD_KEY + "\"\\)"
               )
-              .contains("try {", "catch (ConfigException", "return Optional.empty()")
+              .contains("try {", "catch (ConfigException.Missing", "return Optional.empty()")
 
       );
 
@@ -263,6 +268,57 @@ public class ConfigProcessorTest {
       });
     }
 
+
+    @Disabled("This is no longer a priority as to do it properly we need to inspect erased types " +
+        "and check inheritance trees and is not really worth it")
+    @Test
+    public void generateErrorIfAnnotatedMethodHasCustomMapperThatDoesNotMatchReturnedType() {
+      String interfaceName = "Foo";
+      String methodName = "stringValue";
+      String returnedType = String.class.getCanonicalName();
+      String input = String.format(
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "\n" +
+              "interface %s {\n" +
+              "@" + CONFIG_VALUE.name + "(atPath = \"path\", mappedBy = %s.class)\n" +
+              "%s %s();\n" +
+              "}\n", interfaceName, BasicMappers.IntM.class.getCanonicalName(), returnedType, methodName);
+
+      withFailedCompilation(singletonMap(interfaceName, input), errors -> {
+        assertThat(errors).hasSize(1);
+        DiagnosticAssert.assertThat(errors.get(0))
+            .isErrorContaining("Annotation parameter", "mappedBy", "needs to be a", ConfigMapper.class.getSimpleName(),
+                returnedType, interfaceName, methodName);
+      });
+    }
+
+    @Disabled("This is no longer a priority as to do it properly we need to inspect erased types " +
+        "and check inheritance trees and is not really worth it")
+    @Test
+    public void generateErrorIfAnnotatedInterfaceHasCustomValidatorThatDoesNotMatchType() {
+      String interfaceName = "Foo";
+      String methodName = "stringValue";
+      String returnedType = String.class.getCanonicalName();
+      String input = String.format(
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "(validatedBy = %s.class)\n" +
+              "interface %s {\n" +
+              "@" + CONFIG_VALUE.name + "(atPath = \"path\")\n" +
+              "%s %s();\n" +
+              "}\n", NonEmptyString.class.getCanonicalName(), interfaceName, returnedType, methodName);
+
+      withFailedCompilation(singletonMap(interfaceName, input), errors -> {
+        assertThat(errors).hasSize(1);
+        DiagnosticAssert.assertThat(errors.get(0))
+            .isErrorContaining("Annotation parameter", "validatedBy", "needs to be a",
+                ConfigValidator.class.getSimpleName(), interfaceName);
+      });
+    }
+
     @Test
     public void generateErrorIfAnnotatedMethodsNameHaveDuplicates() {
       String interfaceName = "Foo";
@@ -287,4 +343,5 @@ public class ConfigProcessorTest {
       });
     }
   }
+
 }

@@ -1,5 +1,8 @@
 package com.mylaesoftware.annotations;
 
+import com.mylaesoftware.validators.ConfigValidator;
+import com.mylaesoftware.validators.NoValidation;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -12,4 +15,5 @@ public @interface ConfigType {
 
   String contextPath() default "";
 
+  Class<? extends ConfigValidator<?>>[] validatedBy() default NoValidation.class;
 }
