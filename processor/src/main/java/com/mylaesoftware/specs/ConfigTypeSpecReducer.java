@@ -51,10 +51,7 @@ public class ConfigTypeSpecReducer {
     String contextPath = annotation.contextPath();
 
     ClassName interfaceName = ClassName.get(element);
-    Map<ClassName, Collection<ClassName>> validators = singletonMap(
-        interfaceName,
-        validators(annotation, element)
-    );
+    Map<ClassName, Collection<ClassName>> validators = singletonMap(interfaceName, validators(annotation));
 
     Set<TypeMirror> interfaces = new HashSet<>(singletonList(element.asType()));
     Map<ClassName, Collection<ConfigValueSpec>> configValues = singletonMap(
@@ -92,15 +89,8 @@ public class ConfigTypeSpecReducer {
     );
   }
 
-  private Collection<ClassName> validators(ConfigType type, TypeElement element) {
-    return typesExtractor.extractElementsWithValidType(
-        type::validatedBy,
-        "validatedBy",
-        ClassName.get(element),
-        element, ConfigValidator.class
-    ).stream()
-        .map(ClassName::get)
-        .collect(toSet());
+  private Collection<ClassName> validators(ConfigType type) {
+    return typesExtractor.extractElements(type::validatedBy).stream().map(ClassName::get).collect(toSet());
   }
 
   public static <T> Set<T> append(Set<T> one, Set<T> other) {
