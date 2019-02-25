@@ -28,44 +28,39 @@ public class AnnotationParamExtractor {
       .map(Class::getCanonicalName)
       .collect(toSet());
 
+  private static final Predicate<TypeElement> NOT_IGNORED = element ->
+      !IGNORED_TYPES.contains(element.getQualifiedName().toString());
+
   private final Types typeUtils;
 
   public AnnotationParamExtractor(Types typeUtils) {
     this.typeUtils = typeUtils;
   }
 
-  public Optional<TypeElement> extractElementWithValidType(Supplier<Class<?>> annotationParam,
-                                                           String parameterName,
-                                                           TypeName expectedType,
-                                                           Element enclosingElement,
-                                                           Class<?> expectedBaseType) {
+  public Optional<TypeElement> extractElement(Supplier<Class<?>> annotationParam) {
     try {
       annotationParam.get();
     } catch (MirroredTypeException mte) {
-      return validated(mte.getTypeMirror(), expectedType, expectedBaseType, parameterName, enclosingElement);
+      return Optional.of((TypeElement) typeUtils.asElement(mte.getTypeMirror()))
+          .filter(NOT_IGNORED);
     }
     throw new RuntimeException("Cannot find type element");
   }
 
-  public List<TypeElement> extractElementsWithValidType(Supplier<Class<?>[]> annotationParam,
-                                                        String parameterName,
-                                                        TypeName expectedType,
-                                                        Element enclosingElement,
-                                                        Class<?> expectedBaseType) {
+  public List<TypeElement> extractElements(Supplier<Class<?>[]> annotationParam) {
     try {
       annotationParam.get();
     } catch (MirroredTypesException mte) {
       return mte.getTypeMirrors().stream()
-          .flatMap(mirror ->
-              validated(mirror, expectedType, expectedBaseType, parameterName, enclosingElement)
-                  .map(Stream::of)
-                  .orElse(Stream.empty())
-          )
+          .map(mirror -> (TypeElement) typeUtils.asElement(mirror))
+          .filter(NOT_IGNORED)
           .collect(toList());
     }
     throw new RuntimeException("Cannot find type elements");
   }
 
+  //Either we find a proper way of type checking validators and mappers or we leave it as is
+  @Deprecated
   private Optional<TypeElement> validated(TypeMirror mirror, TypeName expectedType, Class<?> expectedBaseType,
                                           String parameterName,
                                           Element enclosingElement) {
