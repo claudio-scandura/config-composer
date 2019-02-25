@@ -9,6 +9,8 @@ import com.mylaesoftware.assertions.DiagnosticAssert;
 import com.mylaesoftware.mappers.BasicMappers;
 import com.mylaesoftware.mappers.ConfigMapper;
 import com.mylaesoftware.specs.ConfigTypeSpec;
+import com.mylaesoftware.validators.ConfigValidator;
+import com.mylaesoftware.validators.NonEmptyString;
 import com.typesafe.config.Config;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.Nested;
@@ -285,6 +287,29 @@ public class ConfigProcessorTest {
         DiagnosticAssert.assertThat(errors.get(0))
             .isErrorContaining("Annotation parameter", "mappedBy", "needs to be a", ConfigMapper.class.getSimpleName(),
                 returnedType, interfaceName, methodName);
+      });
+    }
+
+    @Test
+    public void generateErrorIfAnnotatedInterfaceHasCustomValidatorThatDoesNotMatchType() {
+      String interfaceName = "Foo";
+      String methodName = "stringValue";
+      String returnedType = String.class.getCanonicalName();
+      String input = String.format(
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "(validatedBy = %s.class)\n" +
+              "interface %s {\n" +
+              "@" + CONFIG_VALUE.name + "(atPath = \"path\")\n" +
+              "%s %s();\n" +
+              "}\n", NonEmptyString.class.getCanonicalName(), interfaceName, returnedType, methodName);
+
+      withFailedCompilation(singletonMap(interfaceName, input), errors -> {
+        assertThat(errors).hasSize(1);
+        DiagnosticAssert.assertThat(errors.get(0))
+            .isErrorContaining("Annotation parameter", "validatedBy", "needs to be a",
+                ConfigValidator.class.getSimpleName(), interfaceName);
       });
     }
 
