@@ -172,7 +172,7 @@ public class ConfigProcessorTest {
               .containsPattern(
                   "new [a-zA-Z0-9_\\.]+\\(\\)\\.apply\\(" + ANY_NAME + ", \"" + CONFIG_FIELD_KEY + "\"\\)"
               )
-              .contains("try {", "catch (ConfigException", "return Optional.empty()")
+              .contains("try {", "catch (ConfigException.Missing", "return Optional.empty()")
 
       );
 

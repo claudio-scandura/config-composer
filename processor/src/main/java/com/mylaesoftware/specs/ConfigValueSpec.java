@@ -1,10 +1,11 @@
 package com.mylaesoftware.specs;
 
-import com.mylaesoftware.Annotations;
+import com.mylaesoftware.MirroredTypesExtractor;
 import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.mylaesoftware.mappers.BasicMappers.StringM;
 import com.mylaesoftware.mappers.NoMapper;
+import com.mylaesoftware.validators.NoValidation;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -16,11 +17,9 @@ import com.typesafe.config.ConfigException;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.MirroredTypeException;
-import javax.lang.model.util.Types;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,24 +42,31 @@ import static com.mylaesoftware.mappers.CollectionsMappers.LongListM;
 import static com.mylaesoftware.mappers.CollectionsMappers.NumberListM;
 import static com.mylaesoftware.mappers.CollectionsMappers.StringListM;
 import static com.sun.tools.javac.code.Symbol.MethodSymbol;
+import static java.util.stream.Collectors.toSet;
 
 public class ConfigValueSpec {
 
-  private final Types typeUtils;
-  final MethodSymbol abstractMethod;
-  final ConfigValue configValueAnnotation;
-  final FieldSpec field;
-  final MethodSpec initMethod;
-  final MethodSpec overrideMethod;
+  private final MirroredTypesExtractor typesExtractor;
+  private final MethodSymbol abstractMethod;
+  private final ConfigValue configValueAnnotation;
+  private final FieldSpec field;
+  private final MethodSpec initMethod;
+  private final MethodSpec overrideMethod;
+  private final Collection<ClassName> validators;
 
-  public ConfigValueSpec(String contextPath, ConfigValue annotation, MethodSymbol abstractMethod, Types typeUtils) {
-    this.typeUtils = typeUtils;
+  public ConfigValueSpec(String contextPath, ConfigValue annotation,
+                         MethodSymbol abstractMethod,
+                         MirroredTypesExtractor typesExtractor) {
+
+    this.typesExtractor = typesExtractor;
     this.abstractMethod = abstractMethod;
     this.configValueAnnotation = annotation;
+
     String configPath = contextPath.isEmpty()
         ? configValueAnnotation.atPath()
         : contextPath.concat("." + configValueAnnotation.atPath());
 
+    validators = validators();
     String methodName = abstractMethod.getSimpleName().toString();
     field = FieldSpec.builder(
         TypeName.get(abstractMethod.getReturnType()),
@@ -96,6 +102,10 @@ public class ConfigValueSpec {
     return overrideMethod;
   }
 
+  public Collection<ClassName> getValidators() {
+    return validators;
+  }
+
   private boolean isOptionalField() {
     return ParameterizedTypeName.class.equals(field.type.getClass())
         && ((ParameterizedTypeName) field.type).rawType.equals(ClassName.get(Optional.class));
@@ -110,8 +120,8 @@ public class ConfigValueSpec {
 
     if (isOptional) {
       return builder.beginControlFlow("try")
-          .addStatement("return Optional.of(" + returnStmt + ")", mapper, configPath)
-          .nextControlFlow("catch ($T e)", ConfigException.class)
+          .addStatement("return Optional.ofNullable(" + returnStmt + ")", mapper, configPath)
+          .nextControlFlow("catch ($T e)", ConfigException.Missing.class)
           .addStatement("return Optional.empty()")
           .endControlFlow()
           .build();
@@ -120,14 +130,17 @@ public class ConfigValueSpec {
   }
 
   private Optional<ClassName> customMapper() {
-    try {
-      configValueAnnotation.mappedBy();
-    } catch (MirroredTypeException mte) {
-      return Optional.of((TypeElement) typeUtils.asElement(mte.getTypeMirror()))
-          .filter(te -> !te.getQualifiedName().toString().equals(NoMapper.class.getCanonicalName()))
-          .map(ClassName::get);
-    }
-    throw new RuntimeException("Cannot find type element for mappedBy field in " + Annotations.CONFIG_VALUE.name);
+    return Optional.of(typesExtractor.extractType(configValueAnnotation::mappedBy))
+        .filter(te -> !te.getQualifiedName().toString().equals(NoMapper.class.getCanonicalName()))
+        //TODO: Add validation of type parameter (needs to match annotated field type)
+        .map(ClassName::get);
+  }
+
+
+  private Collection<ClassName> validators() {
+    return typesExtractor.extractTypes(configValueAnnotation::validatedBy).stream()
+        .filter(te -> !te.getQualifiedName().toString().equals(NoValidation.class.getCanonicalName()))
+        .map(ClassName::get).collect(toSet());
   }
 
 
