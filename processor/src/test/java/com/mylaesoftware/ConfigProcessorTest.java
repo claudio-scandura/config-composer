@@ -6,6 +6,8 @@ import com.google.testing.compile.Compilation.Status;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import com.mylaesoftware.assertions.DiagnosticAssert;
+import com.mylaesoftware.mappers.BasicMappers;
+import com.mylaesoftware.mappers.ConfigMapper;
 import com.mylaesoftware.specs.ConfigTypeSpec;
 import com.typesafe.config.Config;
 import org.apache.commons.io.IOUtils;
@@ -264,6 +266,29 @@ public class ConfigProcessorTest {
     }
 
     @Test
+    public void generateErrorIfAnnotatedMethodHasCustomMapperThatDoesNotMatchReturnedType() {
+      String interfaceName = "Foo";
+      String methodName = "stringValue";
+      String returnedType = String.class.getCanonicalName();
+      String input = String.format(
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "\n" +
+              "interface %s {\n" +
+              "@" + CONFIG_VALUE.name + "(atPath = \"path\", mappedBy = %s.class)\n" +
+              "%s %s();\n" +
+              "}\n", interfaceName, BasicMappers.IntM.class.getCanonicalName(), returnedType, methodName);
+
+      withFailedCompilation(singletonMap(interfaceName, input), errors -> {
+        assertThat(errors).hasSize(1);
+        DiagnosticAssert.assertThat(errors.get(0))
+            .isErrorContaining("Annotation parameter", "mappedBy", "needs to be a", ConfigMapper.class.getSimpleName(),
+                returnedType, interfaceName, methodName);
+      });
+    }
+
+    @Test
     public void generateErrorIfAnnotatedMethodsNameHaveDuplicates() {
       String interfaceName = "Foo";
       String input = String.format(
@@ -287,4 +312,5 @@ public class ConfigProcessorTest {
       });
     }
   }
+
 }

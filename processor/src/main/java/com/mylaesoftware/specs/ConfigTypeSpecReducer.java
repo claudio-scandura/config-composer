@@ -1,11 +1,11 @@
 package com.mylaesoftware.specs;
 
+import com.mylaesoftware.AnnotationParamExtractor;
 import com.mylaesoftware.Annotations;
-import com.mylaesoftware.MirroredTypesExtractor;
 import com.mylaesoftware.annotations.ConfigType;
 import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
-import com.mylaesoftware.validators.NoValidation;
+import com.mylaesoftware.validators.ConfigValidator;
 import com.squareup.javapoet.ClassName;
 
 import javax.lang.model.element.Element;
@@ -33,9 +33,9 @@ import static org.apache.commons.lang3.StringUtils.getCommonPrefix;
 
 public class ConfigTypeSpecReducer {
 
-  private final MirroredTypesExtractor typesExtractor;
+  private final AnnotationParamExtractor typesExtractor;
 
-  public ConfigTypeSpecReducer(MirroredTypesExtractor typesExtractor) {
+  public ConfigTypeSpecReducer(AnnotationParamExtractor typesExtractor) {
     this.typesExtractor = typesExtractor;
   }
 
@@ -51,7 +51,10 @@ public class ConfigTypeSpecReducer {
     String contextPath = annotation.contextPath();
 
     ClassName interfaceName = ClassName.get(element);
-    Map<ClassName, Collection<ClassName>> validators = singletonMap(interfaceName, validators(annotation));
+    Map<ClassName, Collection<ClassName>> validators = singletonMap(
+        interfaceName,
+        validators(annotation, element)
+    );
 
     Set<TypeMirror> interfaces = new HashSet<>(singletonList(element.asType()));
     Map<ClassName, Collection<ConfigValueSpec>> configValues = singletonMap(
@@ -89,11 +92,14 @@ public class ConfigTypeSpecReducer {
     );
   }
 
-  private Collection<ClassName> validators(ConfigType type) {
-    return typesExtractor.extractTypes(type::validatedBy).stream()
-        .filter(te -> !te.getQualifiedName().toString().equals(NoValidation.class.getCanonicalName()))
+  private Collection<ClassName> validators(ConfigType type, TypeElement element) {
+    return typesExtractor.extractElementsWithValidType(
+        type::validatedBy,
+        "validatedBy",
+        ClassName.get(element),
+        element, ConfigValidator.class
+    ).stream()
         .map(ClassName::get)
-        //TODO: Add validation of type parameter (needs to match annotated field type)
         .collect(toSet());
   }
 

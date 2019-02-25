@@ -1,10 +1,11 @@
 package com.mylaesoftware.specs;
 
-import com.mylaesoftware.MirroredTypesExtractor;
+import com.mylaesoftware.AnnotationParamExtractor;
 import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.mylaesoftware.mappers.BasicMappers.StringM;
-import com.mylaesoftware.mappers.NoMapper;
+import com.mylaesoftware.mappers.ConfigMapper;
+import com.mylaesoftware.validators.ConfigValidator;
 import com.mylaesoftware.validators.NoValidation;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -46,7 +47,7 @@ import static java.util.stream.Collectors.toSet;
 
 public class ConfigValueSpec {
 
-  private final MirroredTypesExtractor typesExtractor;
+  private final AnnotationParamExtractor typesExtractor;
   private final MethodSymbol abstractMethod;
   private final ConfigValue configValueAnnotation;
   private final FieldSpec field;
@@ -56,7 +57,7 @@ public class ConfigValueSpec {
 
   public ConfigValueSpec(String contextPath, ConfigValue annotation,
                          MethodSymbol abstractMethod,
-                         MirroredTypesExtractor typesExtractor) {
+                         AnnotationParamExtractor typesExtractor) {
 
     this.typesExtractor = typesExtractor;
     this.abstractMethod = abstractMethod;
@@ -66,7 +67,6 @@ public class ConfigValueSpec {
         ? configValueAnnotation.atPath()
         : contextPath.concat("." + configValueAnnotation.atPath());
 
-    validators = validators();
     String methodName = abstractMethod.getSimpleName().toString();
     field = FieldSpec.builder(
         TypeName.get(abstractMethod.getReturnType()),
@@ -74,6 +74,8 @@ public class ConfigValueSpec {
         Modifier.PRIVATE,
         Modifier.FINAL
     ).build();
+
+    validators = validators();
 
     initMethod = MethodSpec.methodBuilder("read" + StringUtils.capitalize(methodName))
         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
@@ -130,16 +132,23 @@ public class ConfigValueSpec {
   }
 
   private Optional<ClassName> customMapper() {
-    return Optional.of(typesExtractor.extractType(configValueAnnotation::mappedBy))
-        .filter(te -> !te.getQualifiedName().toString().equals(NoMapper.class.getCanonicalName()))
-        //TODO: Add validation of type parameter (needs to match annotated field type)
-        .map(ClassName::get);
+    return typesExtractor.extractElementWithValidType(
+        configValueAnnotation::mappedBy,
+        "mappedBy",
+        field.type,
+        abstractMethod,
+        ConfigMapper.class).map(ClassName::get);
   }
 
 
   private Collection<ClassName> validators() {
-    return typesExtractor.extractTypes(configValueAnnotation::validatedBy).stream()
-        .filter(te -> !te.getQualifiedName().toString().equals(NoValidation.class.getCanonicalName()))
+    return typesExtractor.extractElementsWithValidType(
+        configValueAnnotation::validatedBy,
+        "validatedBy",
+        field.type,
+        abstractMethod,
+        ConfigValidator.class
+    ).stream()
         .map(ClassName::get).collect(toSet());
   }
 

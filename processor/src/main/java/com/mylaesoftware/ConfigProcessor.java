@@ -42,7 +42,8 @@ public class ConfigProcessor extends AbstractProcessor {
     super.init(processingEnv);
     filer = processingEnv.getFiler();
     messager = processingEnv.getMessager();
-    reducer = new ConfigTypeSpecReducer(new MirroredTypesExtractor(processingEnv.getTypeUtils()));
+    AnnotationParamExtractor typesExtractor = new AnnotationParamExtractor(processingEnv.getTypeUtils());
+    reducer = new ConfigTypeSpecReducer(typesExtractor);
   }
 
   @Override
