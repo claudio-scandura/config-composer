@@ -5,6 +5,7 @@ import com.mylaesoftware.validators.ValidationError;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.typesafe.config.Config;
@@ -102,7 +103,7 @@ public class ConfigTypeSpec {
   private MethodSpec buildValidationMethod() {
     return MethodSpec.methodBuilder("validate")
         .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
-        .returns(List.class)
+        .returns(ParameterizedTypeName.get(List.class, ValidationError.class))
         .addStatement("$T<$T> errors = new $T<>()", List.class, ValidationError.class, ArrayList.class)
         .addCode(configValuesValidationCode())
         .addCode(configTypesValidationCode())
