@@ -1,1 +1,1 @@
-# typesafe-config-annotations
+# Config Composer
