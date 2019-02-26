@@ -1,6 +1,7 @@
 package com.mylaesoftware.mappers;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigBeanFactory;
 import com.typesafe.config.ConfigValue;
 
 import java.time.Duration;
@@ -77,6 +78,32 @@ public class BasicMappers {
     @Override
     public Object apply(Config config, String key) {
       return config.getAnyRef(key);
+    }
+  }
+
+  public static final class EnumM<T extends Enum<T>> implements ConfigMapper<T> {
+    private final Class<T> clazz;
+
+    public EnumM(Class<T> clazz) {
+      this.clazz = clazz;
+    }
+
+    @Override
+    public T apply(Config config, String key) {
+      return config.getEnum(clazz, key);
+    }
+  }
+
+  public static final class BeanM<T> implements ConfigMapper<T> {
+    private final Class<T> clazz;
+
+    public BeanM(Class<T> clazz) {
+      this.clazz = clazz;
+    }
+
+    @Override
+    public T apply(Config config, String key) {
+      return ConfigBeanFactory.create(config, clazz);
     }
   }
 }

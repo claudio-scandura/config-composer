@@ -184,6 +184,70 @@ public class ConfigProcessorTest {
 
     }
 
+    @Test
+    public void generateClassThatImplementsStaticMethodToInitializeEnumPropertyFields() {
+
+      String enumType = Annotations.class.getSimpleName();
+      String input = String.format(
+          "package " + GlobalConfig.class.getPackage().getName() + ";\n" +
+              "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+
+              "\n" +
+              "@" + CONFIG_TYPE.name + "\n" +
+              "public interface %s {\n" +
+              "\n" +
+              "  @" + CONFIG_VALUE.name + "(atPath = \"%s\")\n" +
+              "  %s %s();\n" +
+              "\n" +
+              "}", INPUT_SOURCE_NAME, CONFIG_FIELD_KEY, enumType, CONFIG_FIELD_NAME);
+
+      withSuccessfulCompilation(input,
+          actualSource -> assertThat(actualSource.replaceAll("\\n", " "))
+              .contains("import " + Config.class.getCanonicalName())
+              .containsPattern("private static " + enumType +
+                  " " + ANY_NAME + capitalize(CONFIG_FIELD_NAME) + "\\((final )?Config " + ANY_NAME + "\\)")
+              .containsPattern(
+                  "new [a-zA-Z0-9_\\.]+<>\\(" + enumType + ".class\\)" +
+                      "\\.apply\\(" + ANY_NAME + ", \"" + CONFIG_FIELD_KEY + "\"\\)"
+              )
+
+      );
+
+    }
+
+    @Test
+    public void generateClassThatImplementsStaticMethodToInitializeBeanPropertyFieldsWithBeanMapperIfEnabled() {
+      String beanType = TestBean.class.getSimpleName();
+      String mapper = BasicMappers.BeanM.class.getSimpleName();
+      String input = String.format(
+          "package " + GlobalConfig.class.getPackage().getName() + ";\n" +
+              "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+
+              "\n" +
+              "@" + CONFIG_TYPE.name + "(fallbackToBeanMapper = true)\n" +
+              "public interface %s {\n" +
+              "\n" +
+              "  @" + CONFIG_VALUE.name + "(atPath = \"%s\")\n" +
+              "  %s %s();\n" +
+              "\n" +
+              "}", INPUT_SOURCE_NAME, CONFIG_FIELD_KEY, beanType, CONFIG_FIELD_NAME);
+
+      withSuccessfulCompilation(input,
+          actualSource -> assertThat(actualSource.replaceAll("\\n", " "))
+              .contains("import " + Config.class.getCanonicalName())
+              .containsPattern("private static " + beanType +
+                  " " + ANY_NAME + capitalize(CONFIG_FIELD_NAME) + "\\((final )?Config " + ANY_NAME + "\\)")
+              .containsPattern(
+                  "new [a-zA-Z0-9_\\.]+"+mapper+"<>\\(" + beanType + ".class\\)" +
+                      "\\.apply\\(" + ANY_NAME + ", \"" + CONFIG_FIELD_KEY + "\"\\)"
+              )
+
+      );
+
+    }
+
   }
 
   @Nested

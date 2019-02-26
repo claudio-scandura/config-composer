@@ -3,6 +3,8 @@ package com.mylaesoftware.specs;
 import com.mylaesoftware.AnnotationParamExtractor;
 import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
+import com.mylaesoftware.mappers.BasicMappers.BeanM;
+import com.mylaesoftware.mappers.BasicMappers.EnumM;
 import com.mylaesoftware.mappers.BasicMappers.StringM;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -51,14 +53,16 @@ public class ConfigValueSpec {
   private final MethodSpec initMethod;
   private final MethodSpec overrideMethod;
   private final Collection<ClassName> validators;
+  private final boolean enableBeanMapperFallback;
 
   public ConfigValueSpec(String contextPath, ConfigValue annotation,
                          MethodSymbol abstractMethod,
-                         AnnotationParamExtractor typesExtractor) {
+                         AnnotationParamExtractor typesExtractor, boolean enableBeanMapperFallback) {
 
     this.typesExtractor = typesExtractor;
     this.abstractMethod = abstractMethod;
     this.configValueAnnotation = annotation;
+    this.enableBeanMapperFallback = enableBeanMapperFallback;
 
     String configPath = contextPath.isEmpty()
         ? configValueAnnotation.atPath()
@@ -113,19 +117,38 @@ public class ConfigValueSpec {
   private CodeBlock buildInitStatement(String configPath, boolean isOptional) {
     TypeName typeName = isOptional ? ((ParameterizedTypeName) field.type).typeArguments.get(0) : field.type;
 
-    ClassName mapper = customMapper().orElseGet(() -> mapperFor(typeName));
-    String returnStmt = "new $T().apply(config, \"$L\")";
+    Optional<ClassName> enumMapper = maybeEnumMapper();
+    ClassName mapper = customMapper().orElseGet(() -> enumMapper.orElseGet(() -> mapperFor(typeName)));
+
+    CodeBlock returnExpression = returnExpression(mapper, typeName, configPath).build();
+
     CodeBlock.Builder builder = CodeBlock.builder();
 
     if (isOptional) {
       return builder.beginControlFlow("try")
-          .addStatement("return Optional.ofNullable(" + returnStmt + ")", mapper, configPath)
+          .add("return Optional.ofNullable(").add(returnExpression).add(");\n")
           .nextControlFlow("catch ($T e)", ConfigException.Missing.class)
           .addStatement("return Optional.empty()")
           .endControlFlow()
           .build();
     }
-    return builder.addStatement("return " + returnStmt, mapper, configPath).build();
+    return builder.add("return ").add(returnExpression).add(";\n").build();
+  }
+
+  private CodeBlock.Builder returnExpression(ClassName mapper, TypeName type, String configPath) {
+    return mapper.equals(ClassName.get(EnumM.class)) || mapper.equals(ClassName.get(BeanM.class))
+    ? CodeBlock.builder().add("new $T<>($T.class).apply(config, \"$L\")", mapper, type, configPath)
+    : CodeBlock.builder().add("new $T().apply(config, \"$L\")", mapper, configPath);
+
+
+
+  }
+
+  private Optional<ClassName> maybeEnumMapper() {
+    if (abstractMethod.getReturnType().asElement().isEnum()) {
+      return Optional.of(ClassName.get(EnumM.class));
+    }
+    return Optional.empty();
   }
 
   private Optional<ClassName> customMapper() {
@@ -203,6 +226,9 @@ public class ConfigValueSpec {
     }
     if (type.equals(ParameterizedTypeName.get(List.class, Object.class))) {
       return ClassName.get(AnyRefListM.class);
+    }
+    else if (enableBeanMapperFallback) {
+      return ClassName.get(BeanM.class);
     }
 
     throw new AnnotationProcessingException(
