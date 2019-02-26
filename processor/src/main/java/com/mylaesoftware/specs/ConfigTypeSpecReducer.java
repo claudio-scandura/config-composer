@@ -5,7 +5,6 @@ import com.mylaesoftware.Annotations;
 import com.mylaesoftware.annotations.ConfigType;
 import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
-import com.mylaesoftware.validators.ConfigValidator;
 import com.squareup.javapoet.ClassName;
 
 import javax.lang.model.element.Element;
@@ -21,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.mylaesoftware.Annotations.CONFIG_VALUE;
@@ -29,7 +29,6 @@ import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.commons.lang3.StringUtils.getCommonPrefix;
 
 public class ConfigTypeSpecReducer {
 
@@ -40,12 +39,11 @@ public class ConfigTypeSpecReducer {
   }
 
   public ConfigTypeSpec accumulate(ConfigTypeSpec spec, TypeElement element) {
-    if (!element.getKind().isInterface()) {
-      throw new AnnotationProcessingException(
-          Annotations.CONFIG_TYPE.name + " annotation can only be used on interfaces",
-          element
-      );
-    }
+
+    throwIfFalse(element.getKind().isInterface(), "annotation can only be used on interfaces", element);
+
+    throwIfFalse(element.getModifiers().contains(Modifier.PUBLIC),
+        "annotation cannot be used on non public interfaces", element);
 
     ConfigType annotation = element.getAnnotation(ConfigType.class);
     String contextPath = annotation.contextPath();
@@ -63,9 +61,8 @@ public class ConfigTypeSpecReducer {
     );
 
     return spec.isEmpty()
-        ? new ConfigTypeSpec(interfaceName.packageName(), interfaces, configValues, validators) :
+        ? new ConfigTypeSpec(interfaces, configValues, validators) :
         new ConfigTypeSpec(
-            getCommonPrefix(interfaceName.packageName(), spec.packageName),
             append(interfaces, spec.superInterfaces),
             append(configValues, spec.configValues),
             append(validators, spec.validators)
@@ -80,9 +77,7 @@ public class ConfigTypeSpecReducer {
       return one;
     }
 
-    String packageName = getCommonPrefix(one.packageName, other.packageName);
-
-    return new ConfigTypeSpec(packageName,
+    return new ConfigTypeSpec(
         append(one.superInterfaces, other.superInterfaces),
         append(one.configValues, other.configValues),
         append(one.validators, other.validators)
@@ -120,4 +115,12 @@ public class ConfigTypeSpecReducer {
     };
   }
 
+  private static void throwIfFalse(boolean condition, String errorMessage, TypeElement element) {
+    if (!condition) {
+      throw new AnnotationProcessingException(
+          Annotations.CONFIG_TYPE.name + " " + errorMessage,
+          element
+      );
+    }
+  }
 }

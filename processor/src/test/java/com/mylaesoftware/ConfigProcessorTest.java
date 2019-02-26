@@ -8,7 +8,6 @@ import com.google.testing.compile.JavaFileObjects;
 import com.mylaesoftware.assertions.DiagnosticAssert;
 import com.mylaesoftware.mappers.BasicMappers;
 import com.mylaesoftware.mappers.ConfigMapper;
-import com.mylaesoftware.specs.ConfigTypeSpec;
 import com.mylaesoftware.validators.ConfigValidator;
 import com.mylaesoftware.validators.NonEmptyString;
 import com.typesafe.config.Config;
@@ -48,11 +47,12 @@ public class ConfigProcessorTest {
 
 
   private static final String DEFAULT_INPUT = String.format(
-      "import " + CONFIG_TYPE.canonicalName + ";\n" +
+      "package " + GlobalConfig.class.getPackage().getName() + ";\n" +
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
           "import " + CONFIG_VALUE.canonicalName + ";\n" +
           "\n" +
           "@" + CONFIG_TYPE.name + "\n" +
-          "interface %s {\n" +
+          "public interface %s {\n" +
           "\n" +
           "  @" + CONFIG_VALUE.name + "(atPath = \"%s\")\n" +
           "  %s %s();\n" +
@@ -108,7 +108,7 @@ public class ConfigProcessorTest {
     @Test
     public void generateClassWithExpectedNameAndModifiers() {
       withSuccessfulCompilation(DEFAULT_INPUT,
-          actualSource -> assertThat(actualSource).contains("public final class " + ConfigTypeSpec.CLASS_NAME)
+          actualSource -> assertThat(actualSource).contains("public final class " + GlobalConfig.IMPLEMENTATION_NAME)
       );
 
     }
@@ -130,7 +130,7 @@ public class ConfigProcessorTest {
 
       withSuccessfulCompilation(DEFAULT_INPUT,
           actualSource -> assertThat(actualSource.replaceAll("\\n", " "))
-              .contains(ConfigTypeSpec.CLASS_NAME + " implements " + INPUT_SOURCE_NAME)
+              .contains(GlobalConfig.IMPLEMENTATION_NAME + " implements " + INPUT_SOURCE_NAME)
               .containsPattern("\\@Override(\\s+)public " + CONFIG_FIELD_TYPE + " " + CONFIG_FIELD_NAME + "\\(\\)")
               .contains("return " + CONFIG_FIELD_NAME)
       );
@@ -157,12 +157,13 @@ public class ConfigProcessorTest {
 
       String optionalFieldType = "Optional<String>";
       String input = String.format(
-          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+          "package " + GlobalConfig.class.getPackage().getName() + ";\n" +
+              "import " + CONFIG_TYPE.canonicalName + ";\n" +
               "import " + CONFIG_VALUE.canonicalName + ";\n" +
               "import " + Optional.class.getCanonicalName() + ";\n" +
               "\n" +
               "@" + CONFIG_TYPE.name + "\n" +
-              "interface %s {\n" +
+              "public interface %s {\n" +
               "\n" +
               "  @" + CONFIG_VALUE.name + "(atPath = \"%s\")\n" +
               "  %s %s();\n" +
@@ -205,6 +206,22 @@ public class ConfigProcessorTest {
     }
 
     @Test
+    public void generateErrorIfConfigAnnotationUsedOnNonPublicInterface() {
+      String className = "Foo";
+      String input = String.format(
+          "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "\n" +
+              "interface %s {}\n", className);
+
+      withFailedCompilation(singletonMap(className, input), errors -> {
+        assertThat(errors).hasSize(1);
+        DiagnosticAssert.assertThat(errors.get(0))
+            .isErrorContaining(CONFIG_TYPE.name + " annotation cannot be used on non public interfaces", className);
+      });
+    }
+
+    @Test
     public void generateErrorIfConfigValueAnnotationUsedOnNonAnnotatedType() {
       String className = "Foo";
       String methodName = "stringValue";
@@ -232,7 +249,7 @@ public class ConfigProcessorTest {
           "import " + CONFIG_TYPE.canonicalName + ";\n" +
               "\n" +
               "@" + CONFIG_TYPE.name + "\n" +
-              "interface %s {\n" +
+              "public interface %s {\n" +
               "\n" +
               "String %s();\n" +
               "}\n", interfaceName, methodName);
@@ -255,7 +272,7 @@ public class ConfigProcessorTest {
               "import " + CONFIG_VALUE.canonicalName + ";\n" +
               "\n" +
               "@" + CONFIG_TYPE.name + "\n" +
-              "interface %s {\n" +
+              "public interface %s {\n" +
               "@" + CONFIG_VALUE.name + "(atPath = \"any\")\n" +
               "%s %s();\n" +
               "}\n", interfaceName, unsupportedType, methodName);
