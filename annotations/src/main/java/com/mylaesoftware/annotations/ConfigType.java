@@ -16,4 +16,6 @@ public @interface ConfigType {
   String contextPath() default "";
 
   Class<? extends ConfigValidator<?>>[] validatedBy() default NoValidation.class;
+
+  boolean fallbackToBeanMapper() default false;
 }

@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.mylaesoftware.Annotations.CONFIG_VALUE;
@@ -46,7 +45,6 @@ public class ConfigTypeSpecReducer {
         "annotation cannot be used on non public interfaces", element);
 
     ConfigType annotation = element.getAnnotation(ConfigType.class);
-    String contextPath = annotation.contextPath();
 
     ClassName interfaceName = ClassName.get(element);
     Map<ClassName, Collection<ClassName>> validators = singletonMap(interfaceName, validators(annotation));
@@ -56,7 +54,7 @@ public class ConfigTypeSpecReducer {
         interfaceName,
         element.getEnclosedElements().stream()
             .filter(e -> ElementKind.METHOD.equals(e.getKind()))
-            .flatMap(toConfigValue(contextPath))
+            .flatMap(toConfigValue(annotation))
             .collect(toSet())
     );
 
@@ -101,13 +99,16 @@ public class ConfigTypeSpecReducer {
         .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  private Function<Element, Stream<ConfigValueSpec>> toConfigValue(String rootKey) {
+  private Function<Element, Stream<ConfigValueSpec>> toConfigValue(ConfigType type) {
     return method -> {
       if (method.getModifiers().contains(Modifier.DEFAULT)) {
         return Stream.empty();
       }
       return Optional.ofNullable(method.getAnnotation(ConfigValue.class))
-          .map(annotation -> Stream.of(new ConfigValueSpec(rootKey, annotation, (MethodSymbol) method, typesExtractor)))
+          .map(annotation -> Stream.of(new ConfigValueSpec(type.contextPath(), annotation, (MethodSymbol) method,
+              typesExtractor, type.fallbackToBeanMapper())
+              )
+          )
           .orElseThrow(() ->
               new AnnotationProcessingException("Abstract method needs to be annotated with " + CONFIG_VALUE.name +
                   " or have default implementation", method)
