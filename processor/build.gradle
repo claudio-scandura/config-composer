@@ -20,7 +20,7 @@ publishing {
 
     publications {
         mavenJava(MavenPublication) {
-            artifactId 'processor'
+            artifactId 'config-composer-processor'
         }
     }
 }

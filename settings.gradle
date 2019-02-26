@@ -1,3 +1,3 @@
-rootProject.name = 'typesafe-config-annotations'
+rootProject.name = 'config-composer'
 
-include 'processor', 'annotations', 'app'
+include 'processor', 'annotations'
