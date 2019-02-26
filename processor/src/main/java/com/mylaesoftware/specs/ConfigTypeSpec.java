@@ -1,5 +1,6 @@
 package com.mylaesoftware.specs;
 
+import com.mylaesoftware.GlobalConfig;
 import com.mylaesoftware.validators.ConfigValidationException;
 import com.mylaesoftware.validators.ValidationError;
 import com.squareup.javapoet.ClassName;
@@ -29,48 +30,43 @@ public class ConfigTypeSpec {
 
   private static final ConfigTypeSpec EMPTY = new ConfigTypeSpec();
 
-  public static final String CLASS_NAME = "GlobalConfig";
-
   public static final BinaryOperator<TypeSpec.Builder> specMerger = (left, right) -> {
     TypeSpec one = left.build();
     TypeSpec other = right.build();
-    return TypeSpec.classBuilder(CLASS_NAME)
+    return TypeSpec.classBuilder(GlobalConfig.IMPLEMENTATION_NAME)
         .addModifiers(one.modifiers.toArray(new Modifier[0]))
         .addSuperinterfaces(one.superinterfaces)
         .addFields(ConfigTypeSpecReducer.append(one.fieldSpecs, other.fieldSpecs))
         .addMethods(ConfigTypeSpecReducer.append(one.methodSpecs, other.methodSpecs));
   };
 
-  final String packageName;
   final Set<TypeMirror> superInterfaces;
   final Map<ClassName, Collection<ConfigValueSpec>> configValues;
   final Map<ClassName, Collection<ClassName>> validators;
 
   private ConfigTypeSpec() {
-    packageName = "";
     superInterfaces = emptySet();
     configValues = emptyMap();
     validators = emptyMap();
   }
 
-  public ConfigTypeSpec(String packageName,
-                        Set<TypeMirror> superInterfaces,
+  public ConfigTypeSpec(Set<TypeMirror> superInterfaces,
                         Map<ClassName, Collection<ConfigValueSpec>> configValues,
                         Map<ClassName, Collection<ClassName>> validators) {
-    this.packageName = packageName;
     this.superInterfaces = superInterfaces;
     this.configValues = configValues;
     this.validators = validators;
   }
 
   public String packageName() {
-    return packageName;
+    return GlobalConfig.class.getPackage().getName();
   }
 
   public TypeSpec build() {
-    TypeSpec.Builder builder = TypeSpec.classBuilder(ConfigTypeSpec.CLASS_NAME)
+    TypeSpec.Builder builder = TypeSpec.classBuilder(GlobalConfig.IMPLEMENTATION_NAME)
         .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-        .addSuperinterfaces(superInterfaces.stream().map(TypeName::get).collect(toList()));
+        .addSuperinterfaces(superInterfaces.stream().map(TypeName::get).collect(toList()))
+        .addSuperinterface(ClassName.get(GlobalConfig.class));
 
     //TODO: Parallelize this stream by copying builder at each step, rather then modifying base builder
     return configValues.values().stream().flatMap(Collection::stream).reduce(builder,
