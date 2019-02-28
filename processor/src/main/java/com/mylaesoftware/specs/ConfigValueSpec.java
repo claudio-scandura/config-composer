@@ -76,8 +76,6 @@ public class ConfigValueSpec {
         Modifier.FINAL
     ).build();
 
-    validators = validators();
-
     initMethod = MethodSpec.methodBuilder("read" + StringUtils.capitalize(methodName))
         .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
         .addParameter(Config.class, "config", Modifier.FINAL)
@@ -91,6 +89,8 @@ public class ConfigValueSpec {
         .returns(field.type)
         .addStatement("return $L", field.name)
         .build();
+
+    validators = validators();
   }
 
   public FieldSpec getField() {
