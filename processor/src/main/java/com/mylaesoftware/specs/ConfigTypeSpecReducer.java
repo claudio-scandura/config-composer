@@ -68,13 +68,6 @@ public class ConfigTypeSpecReducer {
   }
 
   public ConfigTypeSpec combine(ConfigTypeSpec one, ConfigTypeSpec other) {
-    if (one.isEmpty()) {
-      return other;
-    }
-    if (other.isEmpty()) {
-      return one;
-    }
-
     return new ConfigTypeSpec(
         append(one.superInterfaces, other.superInterfaces),
         append(one.configValues, other.configValues),

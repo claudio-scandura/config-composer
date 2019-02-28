@@ -19,26 +19,20 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BinaryOperator;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
+import static com.mylaesoftware.specs.ConfigTypeSpecReducer.append;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 public class ConfigTypeSpec {
 
   private static final ConfigTypeSpec EMPTY = new ConfigTypeSpec();
 
-  public static final BinaryOperator<TypeSpec.Builder> specMerger = (left, right) -> {
-    TypeSpec one = left.build();
-    TypeSpec other = right.build();
-    return TypeSpec.classBuilder(GlobalConfig.IMPLEMENTATION_NAME)
-        .addModifiers(one.modifiers.toArray(new Modifier[0]))
-        .addSuperinterfaces(one.superinterfaces)
-        .addFields(ConfigTypeSpecReducer.append(one.fieldSpecs, other.fieldSpecs))
-        .addMethods(ConfigTypeSpecReducer.append(one.methodSpecs, other.methodSpecs));
-  };
+  private static final Collector<CodeBlock, ?, CodeBlock> TO_CODE_BLOCK = CodeBlock.joining("");
+  private static final String VALIDATION_METHOD_NAME = "validate";
 
   final Set<TypeMirror> superInterfaces;
   final Map<ClassName, Collection<ConfigValueSpec>> configValues;
@@ -63,90 +57,105 @@ public class ConfigTypeSpec {
   }
 
   public TypeSpec build() {
-    TypeSpec.Builder builder = TypeSpec.classBuilder(GlobalConfig.IMPLEMENTATION_NAME)
-        .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-        .addSuperinterfaces(superInterfaces.stream().map(TypeName::get).collect(toList()))
-        .addSuperinterface(ClassName.get(GlobalConfig.class));
 
-    //TODO: Parallelize this stream by copying builder at each step, rather then modifying base builder
-    return configValues.values().stream().flatMap(Collection::stream).reduce(builder,
-        (b, configValue) -> b.addField(configValue.getField())
-            .addMethod(configValue.getInitMethod())
-            .addMethod(configValue.getOverrideMethod()),
-        specMerger)
+    TypeSpec spec = TypeSpec.classBuilder(GlobalConfig.IMPLEMENTATION_NAME)
+        .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+        .addSuperinterfaces(superInterfaces.parallelStream().map(TypeName::get).collect(toSet()))
+        .addSuperinterface(ClassName.get(GlobalConfig.class))
         .addMethod(buildConstructor())
         .addMethod(buildValidationMethod())
         .build();
+
+    return configValues.values().stream().flatMap(Collection::stream).parallel()
+        .reduce(spec, ConfigTypeSpec::accumulate, ConfigTypeSpec::combine);
+
   }
 
   private MethodSpec buildConstructor() {
-    final MethodSpec.Builder builder = MethodSpec.constructorBuilder()
+    return MethodSpec.constructorBuilder()
         .addModifiers(Modifier.PUBLIC)
-        .addParameter(Config.class, "config", Modifier.FINAL);
-
-    return configValues.values().stream().flatMap(Collection::stream).collect(() -> builder,
-        (b, configValue) ->
-            b.addStatement(configValue.getField().name + " = " + configValue.getInitMethod().name + "($N)", "config"),
-        (l, r) -> l.addCode(r.build().code)
-    )
-        .addStatement("$T<$T> errors = validate()", List.class, ValidationError.class)
+        .addParameter(Config.class, "config", Modifier.FINAL)
+        .addCode(fieldsAssignmentCode())
+        .addStatement("$T<$T> errors = $L()", List.class, ValidationError.class, VALIDATION_METHOD_NAME)
         .beginControlFlow("if (!errors.isEmpty())")
         .addStatement("throw new $T(errors)", ConfigValidationException.class)
         .endControlFlow()
         .build();
   }
 
+  private CodeBlock fieldsAssignmentCode() {
+    return configValues.values().stream().flatMap(Collection::stream).parallel()
+        .map(value ->
+            CodeBlock.builder()
+                .addStatement(value.getField().name + " = " + value.getInitMethod().name + "($N)", "config")
+                .build())
+        .collect(TO_CODE_BLOCK);
+  }
+
   private MethodSpec buildValidationMethod() {
-    return MethodSpec.methodBuilder("validate")
+    return MethodSpec.methodBuilder(VALIDATION_METHOD_NAME)
         .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
         .returns(ParameterizedTypeName.get(List.class, ValidationError.class))
         .addStatement("$T<$T> errors = new $T<>()", List.class, ValidationError.class, ArrayList.class)
-        .addCode(configValuesValidationCode())
-        .addCode(configTypesValidationCode())
+        .addCode(typesValidationCode())
+        .addCode(fieldsValidationCode())
         .addStatement("return errors")
         .build();
   }
 
-  private CodeBlock configTypesValidationCode() {
-    return validators.entrySet().stream()
-        .map(this::toValidationCode)
-        .reduce(CodeBlock.builder(), CodeBlock.Builder::add, (l, r) -> l.add(r.build()))
-        .build();
+  private CodeBlock fieldsValidationCode() {
+    return validators.entrySet().parallelStream()
+        .map(this::toTypesValidationCode)
+        .collect(CodeBlock.joining(""));
   }
 
-  private CodeBlock configValuesValidationCode() {
-    return configValues.entrySet().stream()
-        .map(this::toValuesValidationCode)
-        .reduce(CodeBlock.builder(), CodeBlock.Builder::add, (l, r) -> l.add(r.build()))
-        .build();
+  private CodeBlock typesValidationCode() {
+    return configValues.entrySet().parallelStream()
+        .map(this::toFieldsValidationCode)
+        .collect(TO_CODE_BLOCK);
   }
 
-  private CodeBlock toValuesValidationCode(Map.Entry<ClassName, Collection<ConfigValueSpec>> entry) {
+  private CodeBlock toFieldsValidationCode(Map.Entry<ClassName, Collection<ConfigValueSpec>> entry) {
 
-    return entry.getValue().stream().flatMap(configValue ->
-        configValue.getValidators().stream()
+    return entry.getValue().parallelStream().flatMap(configValue ->
+        configValue.getValidators().parallelStream()
             .map(validator ->
                 CodeBlock.builder().add("errors.addAll(\n")
                     .add("new $T().apply($L).stream()\n", validator, configValue.getField().name)
                     .add(".map(e -> e.withFieldInfo($T.class, \"$L\"))\n", entry.getKey(), configValue.getField().name)
                     .add(".collect($T.toList())\n", Collectors.class)
                     .addStatement(")")
+                    .build()
 
             )
-    ).reduce((l, r) -> l.add(r.build())).orElse(CodeBlock.builder()).build();
+    ).collect(TO_CODE_BLOCK);
   }
 
-  private CodeBlock toValidationCode(Map.Entry<ClassName, Collection<ClassName>> entry) {
+  private CodeBlock toTypesValidationCode(Map.Entry<ClassName, Collection<ClassName>> entry) {
 
-    return entry.getValue().stream()
-        .collect(CodeBlock::builder,
-            (builder, validator) -> builder.add("errors.addAll(\n")
-                .add("new $T().apply($L).stream()\n", validator, "this")
-                .add(".map(e -> e.withClassInfo($T.class))\n", entry.getKey())
-                .add(".collect($T.toList())\n", Collectors.class)
-                .addStatement(")"),
-            (l, r) -> l.add(r.build())
-        ).build();
+    return entry.getValue().parallelStream().map(validator ->
+        CodeBlock.builder().add("errors.addAll(\n")
+            .add("new $T().apply($L).stream()\n", validator, "this")
+            .add(".map(e -> e.withClassInfo($T.class))\n", entry.getKey())
+            .add(".collect($T.toList())\n", Collectors.class)
+            .addStatement(")")
+            .build()
+    ).collect(TO_CODE_BLOCK);
+  }
+
+  private static TypeSpec combine(TypeSpec one, TypeSpec other) {
+    return TypeSpec.classBuilder(GlobalConfig.IMPLEMENTATION_NAME)
+        .addModifiers(append(one.modifiers, other.modifiers).toArray(new Modifier[0]))
+        .addSuperinterfaces(append(one.superinterfaces, other.superinterfaces))
+        .addFields(append(one.fieldSpecs, other.fieldSpecs))
+        .addMethods(append(one.methodSpecs, other.methodSpecs)).build();
+  }
+
+  private static TypeSpec accumulate(TypeSpec accumulated, ConfigValueSpec value) {
+    return accumulated.toBuilder().addField(value.getField())
+        .addMethod(value.getInitMethod())
+        .addMethod(value.getOverrideMethod())
+        .build();
   }
 
   public static ConfigTypeSpec empty() {

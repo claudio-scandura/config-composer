@@ -49,8 +49,8 @@ public class ConfigProcessor extends AbstractProcessor {
   @Override
   public Set<String> getSupportedAnnotationTypes() {
     return Stream.of(
-        ConfigValue.class.getCanonicalName(),
-        ConfigType.class.getCanonicalName()
+        CONFIG_VALUE.canonicalName,
+        CONFIG_TYPE.canonicalName
     ).collect(Collectors.toSet());
   }
 
@@ -67,7 +67,7 @@ public class ConfigProcessor extends AbstractProcessor {
     try {
       validateConfigValueAnnotatedElements(roundEnv.getElementsAnnotatedWith(ConfigValue.class));
 
-      ConfigTypeSpec configClass = annotatedClasses.stream()
+      ConfigTypeSpec configClass = annotatedClasses.parallelStream()
           .map(e -> (TypeElement) e)
           .reduce(ConfigTypeSpec.empty(), reducer::accumulate, reducer::combine);
 

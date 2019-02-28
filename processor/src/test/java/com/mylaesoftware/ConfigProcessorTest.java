@@ -11,6 +11,7 @@ import com.mylaesoftware.mappers.ConfigMapper;
 import com.mylaesoftware.validators.ConfigValidator;
 import com.mylaesoftware.validators.NonEmptyString;
 import com.typesafe.config.Config;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
@@ -19,11 +20,15 @@ import org.junit.jupiter.api.Test;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.AbstractMap;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -240,7 +245,7 @@ public class ConfigProcessorTest {
               .containsPattern("private static " + beanType +
                   " " + ANY_NAME + capitalize(CONFIG_FIELD_NAME) + "\\((final )?Config " + ANY_NAME + "\\)")
               .containsPattern(
-                  "new [a-zA-Z0-9_\\.]+"+mapper+"<>\\(" + beanType + ".class\\)" +
+                  "new [a-zA-Z0-9_\\.]+" + mapper + "<>\\(" + beanType + ".class\\)" +
                       "\\.apply\\(" + ANY_NAME + ", \"" + CONFIG_FIELD_KEY + "\"\\)"
               )
 
@@ -422,6 +427,38 @@ public class ConfigProcessorTest {
             .isErrorContaining("cannot be used on multiple methods with the same name",
                 CONFIG_FIELD_NAME, CONFIG_VALUE.name, interfaceName);
       });
+    }
+  }
+
+  @Test
+  public void shouldBuildInParallel() throws URISyntaxException, IOException {
+    final AtomicInteger i = new AtomicInteger();
+    Map<String, String> sources = FileUtils.listFiles(new File(getClass().getResource("/java/").toURI()), null, false)
+        .parallelStream()
+        .map(this::readFileToString)
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    while (i.incrementAndGet() < 100) {
+      try {
+        withCompiledSource(sources, result -> {
+          assertThat(result.status())
+              .as("Compilation failed at iteration %d with: %s generated code:\n", i.get(), result.errors())
+              .isEqualTo(Status.SUCCESS);
+        });
+
+      } catch (Exception e) {
+        throw new RuntimeException("Failed at iteration " + i.get(), e);
+      }
+    }
+  }
+
+  private Map.Entry<String, String> readFileToString(File file) {
+    try {
+      return new AbstractMap.SimpleEntry<>(
+          file.getName().replaceAll("\\.java", ""),
+          FileUtils.readFileToString(file, UTF_8)
+      );
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
