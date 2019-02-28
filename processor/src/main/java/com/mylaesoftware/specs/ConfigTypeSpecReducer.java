@@ -37,7 +37,7 @@ public class ConfigTypeSpecReducer {
     this.typesExtractor = typesExtractor;
   }
 
-  public ConfigTypeSpec accumulate(ConfigTypeSpec spec, TypeElement element) {
+  public ConfigTypeSpec accumulate(ConfigTypeSpec accumulated, TypeElement element) {
 
     throwIfFalse(element.getKind().isInterface(), "annotation can only be used on interfaces", element);
 
@@ -58,20 +58,20 @@ public class ConfigTypeSpecReducer {
             .collect(toSet())
     );
 
-    return spec.isEmpty()
-        ? new ConfigTypeSpec(interfaces, configValues, validators) :
-        new ConfigTypeSpec(
-            append(interfaces, spec.superInterfaces),
-            append(configValues, spec.configValues),
-            append(validators, spec.validators)
-        );
+    ConfigTypeSpec spec = new ConfigTypeSpec(
+        merge(interfaces, accumulated.superInterfaces),
+        merge(configValues, accumulated.configValues),
+        merge(validators, accumulated.validators)
+    );
+
+    return combine(accumulated, spec);
   }
 
   public ConfigTypeSpec combine(ConfigTypeSpec one, ConfigTypeSpec other) {
     return new ConfigTypeSpec(
-        append(one.superInterfaces, other.superInterfaces),
-        append(one.configValues, other.configValues),
-        append(one.validators, other.validators)
+        merge(one.superInterfaces, other.superInterfaces),
+        merge(one.configValues, other.configValues),
+        merge(one.validators, other.validators)
     );
   }
 
@@ -79,17 +79,17 @@ public class ConfigTypeSpecReducer {
     return typesExtractor.extractElements(type::validatedBy).stream().map(ClassName::get).collect(toSet());
   }
 
-  public static <T> Set<T> append(Set<T> one, Set<T> other) {
+  public static <T> Set<T> merge(Set<T> one, Set<T> other) {
     return Stream.concat(one.stream(), other.stream()).collect(toSet());
   }
 
-  public static <T> Set<T> append(List<T> one, List<T> other) {
+  public static <T> Set<T> merge(List<T> one, List<T> other) {
     return Stream.concat(one.stream(), other.stream()).collect(toSet());
   }
 
-  public static <K, V> Map<K, V> append(Map<K, V> one, Map<K, V> other) {
+  public static <K, V> Map<K, V> merge(Map<K, V> one, Map<K, V> other) {
     return Stream.concat(one.entrySet().stream(), other.entrySet().stream())
-        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (l, r) -> r));
   }
 
   private Function<Element, Stream<ConfigValueSpec>> toConfigValue(ConfigType type) {
