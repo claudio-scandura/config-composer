@@ -22,7 +22,7 @@ import java.util.Set;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
-import static com.mylaesoftware.specs.ConfigTypeSpecReducer.append;
+import static com.mylaesoftware.specs.ConfigTypeSpecReducer.merge;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toSet;
@@ -145,10 +145,10 @@ public class ConfigTypeSpec {
 
   private static TypeSpec combine(TypeSpec one, TypeSpec other) {
     return TypeSpec.classBuilder(GlobalConfig.IMPLEMENTATION_NAME)
-        .addModifiers(append(one.modifiers, other.modifiers).toArray(new Modifier[0]))
-        .addSuperinterfaces(append(one.superinterfaces, other.superinterfaces))
-        .addFields(append(one.fieldSpecs, other.fieldSpecs))
-        .addMethods(append(one.methodSpecs, other.methodSpecs)).build();
+        .addModifiers(ConfigTypeSpecReducer.merge(one.modifiers, other.modifiers).toArray(new Modifier[0]))
+        .addSuperinterfaces(ConfigTypeSpecReducer.merge(one.superinterfaces, other.superinterfaces))
+        .addFields(ConfigTypeSpecReducer.merge(one.fieldSpecs, other.fieldSpecs))
+        .addMethods(ConfigTypeSpecReducer.merge(one.methodSpecs, other.methodSpecs)).build();
   }
 
   private static TypeSpec accumulate(TypeSpec accumulated, ConfigValueSpec value) {

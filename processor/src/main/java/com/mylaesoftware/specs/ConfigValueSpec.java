@@ -137,9 +137,8 @@ public class ConfigValueSpec {
 
   private CodeBlock.Builder returnExpression(ClassName mapper, TypeName type, String configPath) {
     return mapper.equals(ClassName.get(EnumM.class)) || mapper.equals(ClassName.get(BeanM.class))
-    ? CodeBlock.builder().add("new $T<>($T.class).apply(config, \"$L\")", mapper, type, configPath)
-    : CodeBlock.builder().add("new $T().apply(config, \"$L\")", mapper, configPath);
-
+        ? CodeBlock.builder().add("new $T<>($T.class).apply(config, \"$L\")", mapper, type, configPath)
+        : CodeBlock.builder().add("new $T().apply(config, \"$L\")", mapper, configPath);
 
 
   }
@@ -227,7 +226,7 @@ public class ConfigValueSpec {
     if (type.equals(ParameterizedTypeName.get(List.class, Object.class))) {
       return ClassName.get(AnyRefListM.class);
     }
-    else if (enableBeanMapperFallback) {
+    if (enableBeanMapperFallback) {
       return ClassName.get(BeanM.class);
     }
 
