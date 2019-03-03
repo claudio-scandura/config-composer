@@ -5,6 +5,7 @@ import com.mylaesoftware.Annotations;
 import com.mylaesoftware.annotations.ConfigType;
 import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
+import com.mylaesoftware.validators.ConfigValidator;
 import com.squareup.javapoet.ClassName;
 
 import javax.lang.model.element.Element;
@@ -47,7 +48,7 @@ public class ConfigTypeSpecReducer {
     ConfigType annotation = element.getAnnotation(ConfigType.class);
 
     ClassName interfaceName = ClassName.get(element);
-    Map<ClassName, Collection<ClassName>> validators = singletonMap(interfaceName, validators(annotation));
+    Map<ClassName, Collection<ClassName>> validators = singletonMap(interfaceName, validators(annotation, element));
 
     Set<TypeMirror> interfaces = new HashSet<>(singletonList(element.asType()));
     Map<ClassName, Collection<ConfigValueSpec>> configValues = singletonMap(
@@ -75,8 +76,11 @@ public class ConfigTypeSpecReducer {
     );
   }
 
-  private Collection<ClassName> validators(ConfigType type) {
-    return typesExtractor.extractElements(type::validatedBy).stream().map(ClassName::get).collect(toSet());
+  private Collection<ClassName> validators(ConfigType type, TypeElement element) {
+    return typesExtractor.extractElements(type::validatedBy,
+        ClassName.get(element),
+        ConfigValidator.class, "validatedBy", element
+    ).stream().map(ClassName::get).collect(toSet());
   }
 
   public static <T> Set<T> merge(Set<T> one, Set<T> other) {
@@ -99,7 +103,7 @@ public class ConfigTypeSpecReducer {
       }
       return Optional.ofNullable(method.getAnnotation(ConfigValue.class))
           .map(annotation -> Stream.of(new ConfigValueSpec(type.contextPath(), annotation, (MethodSymbol) method,
-              typesExtractor, type.fallbackToBeanMapper())
+                  typesExtractor, type.fallbackToBeanMapper())
               )
           )
           .orElseThrow(() ->

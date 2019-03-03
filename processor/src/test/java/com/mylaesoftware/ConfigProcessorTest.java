@@ -13,7 +13,6 @@ import com.mylaesoftware.validators.NonEmptyString;
 import com.typesafe.config.Config;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -355,8 +354,8 @@ public class ConfigProcessorTest {
     }
 
 
-    @Disabled("This is no longer a priority as to do it properly we need to inspect erased types " +
-        "and check inheritance trees and is not really worth it")
+    //    @Disabled("This is no longer a priority as to do it properly we need to inspect erased types " +
+//        "and check inheritance trees and is not really worth it")
     @Test
     public void generateErrorIfAnnotatedMethodHasCustomMapperThatDoesNotMatchReturnedType() {
       String interfaceName = "Foo";
@@ -367,7 +366,7 @@ public class ConfigProcessorTest {
               "import " + CONFIG_VALUE.canonicalName + ";\n" +
               "\n" +
               "@" + CONFIG_TYPE.name + "\n" +
-              "interface %s {\n" +
+              "public interface %s {\n" +
               "@" + CONFIG_VALUE.name + "(atPath = \"path\", mappedBy = %s.class)\n" +
               "%s %s();\n" +
               "}\n", interfaceName, BasicMappers.IntM.class.getCanonicalName(), returnedType, methodName);
@@ -380,8 +379,6 @@ public class ConfigProcessorTest {
       });
     }
 
-    @Disabled("This is no longer a priority as to do it properly we need to inspect erased types " +
-        "and check inheritance trees and is not really worth it")
     @Test
     public void generateErrorIfAnnotatedInterfaceHasCustomValidatorThatDoesNotMatchType() {
       String interfaceName = "Foo";
@@ -392,7 +389,7 @@ public class ConfigProcessorTest {
               "import " + CONFIG_VALUE.canonicalName + ";\n" +
               "\n" +
               "@" + CONFIG_TYPE.name + "(validatedBy = %s.class)\n" +
-              "interface %s {\n" +
+              "public interface %s {\n" +
               "@" + CONFIG_VALUE.name + "(atPath = \"path\")\n" +
               "%s %s();\n" +
               "}\n", NonEmptyString.class.getCanonicalName(), interfaceName, returnedType, methodName);
