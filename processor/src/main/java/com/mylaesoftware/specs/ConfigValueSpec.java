@@ -6,6 +6,8 @@ import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.mylaesoftware.mappers.BasicMappers.BeanM;
 import com.mylaesoftware.mappers.BasicMappers.EnumM;
 import com.mylaesoftware.mappers.BasicMappers.StringM;
+import com.mylaesoftware.mappers.ConfigMapper;
+import com.mylaesoftware.validators.ConfigValidator;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -151,12 +153,18 @@ public class ConfigValueSpec {
   }
 
   private Optional<ClassName> customMapper() {
-    return typesExtractor.extractElement(configValueAnnotation::mappedBy).map(ClassName::get);
+    return typesExtractor.extractElement(configValueAnnotation::mappedBy, field.type, ConfigMapper.class, "mappedBy", abstractMethod)
+        .map(ClassName::get);
   }
 
 
   private Collection<ClassName> validators() {
-    return typesExtractor.extractElements(configValueAnnotation::validatedBy).stream()
+    return typesExtractor.extractElements(configValueAnnotation::validatedBy,
+        field.type,
+        ConfigValidator.class,
+        "validatedBy",
+        abstractMethod
+    ).stream()
         .map(ClassName::get)
         .collect(toSet());
   }

@@ -42,7 +42,7 @@ public class ConfigProcessor extends AbstractProcessor {
     super.init(processingEnv);
     filer = processingEnv.getFiler();
     messager = processingEnv.getMessager();
-    AnnotationParamExtractor typesExtractor = new AnnotationParamExtractor(processingEnv.getTypeUtils());
+    AnnotationParamExtractor typesExtractor = new AnnotationParamExtractor(processingEnv.getTypeUtils(), processingEnv.getElementUtils());
     reducer = new ConfigTypeSpecReducer(typesExtractor);
   }
 
