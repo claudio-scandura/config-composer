@@ -5,6 +5,7 @@ import com.mylaesoftware.mappers.NoMapper;
 import com.mylaesoftware.validators.NoValidation;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.WildcardTypeName;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
@@ -14,15 +15,12 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
@@ -34,9 +32,6 @@ public class AnnotationParamExtractor {
       .map(Class::getCanonicalName)
       .collect(toSet());
 
-  private static final Predicate<TypeElement> NOT_IGNORED = element ->
-      !IGNORED_TYPES.contains(element.getQualifiedName().toString());
-
   private final Types typeUtils;
   private final Elements elementUtils;
 
@@ -46,21 +41,19 @@ public class AnnotationParamExtractor {
   }
 
   public Optional<TypeElement> extractElement(Supplier<Class<?>> annotationParam,
-                                              TypeName expectedGenericType,
-                                              Class<?> expectedBaseType,
+                                              ParameterizedTypeName expectedGenericType,
                                               String parameterName,
                                               Element enclosingElement) {
     try {
       annotationParam.get();
     } catch (MirroredTypeException mte) {
-      return validated(mte.getTypeMirror(), expectedGenericType, expectedBaseType, parameterName, enclosingElement);
+      return validated(mte.getTypeMirror(), expectedGenericType, parameterName, enclosingElement);
     }
     throw new RuntimeException("Cannot find type element");
   }
 
   public List<TypeElement> extractElements(Supplier<Class<?>[]> annotationParam,
-                                           TypeName expectedGenericType,
-                                           Class<?> expectedBaseType,
+                                           ParameterizedTypeName expectedGenericType,
                                            String parameterName,
                                            Element enclosingElement) {
     try {
@@ -68,7 +61,7 @@ public class AnnotationParamExtractor {
     } catch (MirroredTypesException mte) {
       return mte.getTypeMirrors().stream()
           .flatMap(mirror ->
-              validated(mirror, expectedGenericType, expectedBaseType, parameterName, enclosingElement)
+              validated(mirror, expectedGenericType, parameterName, enclosingElement)
                   .map(Stream::of)
                   .orElse(Stream.empty())
           )
@@ -78,19 +71,18 @@ public class AnnotationParamExtractor {
   }
 
 
-  private Optional<TypeElement> validated(TypeMirror mirror, TypeName expectedType,
-                                          Class<?> expectedBaseType,
+  private Optional<TypeElement> validated(TypeMirror mirror,
+                                          ParameterizedTypeName expectedType,
                                           String parameterName,
                                           Element enclosingElement) {
     TypeElement typeElement = (TypeElement) typeUtils.asElement(mirror);
     if (IGNORED_TYPES.contains(typeElement.getQualifiedName().toString())) {
       return Optional.empty();
     }
-    if (!isValid(typeElement, expectedType, expectedBaseType)) {
+    if (!isValid(typeElement, expectedType)) {
       throw new AnnotationProcessingException(
-          String.format("Annotation parameter '%s' needs to be a '%s<%s>'",
+          String.format("Annotation parameter '%s' needs to be a '%s'",
               parameterName,
-              expectedBaseType.getSimpleName(),
               expectedType),
           enclosingElement
       );
@@ -98,45 +90,52 @@ public class AnnotationParamExtractor {
     return Optional.of(typeElement);
   }
 
-  private boolean isValid(TypeElement actual, TypeName typeParamName, Class<?> baseType) {
-    List<TypeName> innerTypeParams = typeParamName.getClass().equals(ParameterizedTypeName.class)
-        ? ((ParameterizedTypeName) typeParamName).typeArguments
-        : Collections.emptyList();
+  private boolean isValid(TypeElement actual, ParameterizedTypeName expectedType) {
     return !actual.getInterfaces().stream()
-//        .map(TypeMirror::toString)
-        .map(extractGenericType(baseType.getCanonicalName() + "<(?<type>.*?)>", innerTypeParams))
-        .filter(isValidType(typeParamName))
+        .map(TypeName::get)
+        .filter(ParameterizedTypeName.class::isInstance)
+        .filter(isAssignableTo(expectedType))
         .collect(toList())
         .isEmpty();
 
   }
 
-  private Predicate<Optional<TypeMirror>> isValidType(TypeName typeName) {
-    String type = typeName.getClass().equals(ParameterizedTypeName.class)
-        ? ((ParameterizedTypeName) typeName).rawType.toString()
-        : typeName.toString();
+  private Predicate<TypeName> isAssignableTo(TypeName expectedType) {
+    return actualType -> {
+      TypeMirror expectedErasedType = typeUtils.erasure(asTypeMirror(expectedType));
+      TypeMirror actualErasedValue = typeUtils.erasure(asTypeMirror(actualType));
 
-    TypeMirror expectedType = typeUtils.erasure(elementUtils.getTypeElement(type).asType());
+      if (!typeUtils.isAssignable(expectedErasedType, actualErasedValue)) {
+        return false;
+      }
+      if (expectedType.getClass().equals(ParameterizedTypeName.class)) {
+        if (actualType.getClass().equals(ParameterizedTypeName.class)) {
 
-    return maybeMirror -> maybeMirror.filter(mirror -> typeUtils.isAssignable(expectedType, mirror)).isPresent();
-  }
-
-  private Function<TypeMirror, Optional<TypeMirror>> extractGenericType(String regex, List<TypeName> innerTypeParams) {
-    return value -> {
-      Pattern pattern = Pattern.compile(regex);
-      Matcher matcher = pattern.matcher(value.toString());
-
-//      if (!innerTypeParams.isEmpty()) {
-//        typeUtils.getDeclaredType(elementUtils.value, elementUtils.getTypeElement(innerTypeParams.get(0).toString()))
-//      }
-      return matcher.matches()
-          ? Optional.of(elementUtils.getTypeElement(matcher.group("type").replaceAll("<.*?>", "")).asType())
-          : Optional.empty();
+          List<TypeName> typeArguments = ((ParameterizedTypeName) expectedType).typeArguments;
+          List<TypeName> vTypeArguments = ((ParameterizedTypeName) actualType).typeArguments;
+          return IntStream.range(0, Math.min(typeArguments.size(), vTypeArguments.size())).allMatch(idx ->
+              isAssignableTo(typeArguments.get(idx)).test(vTypeArguments.get(idx))
+          );
+        }
+        return false;
+      }
+      return true;
     };
   }
 
-  private boolean isAssignable(TypeMirror type, TypeMirror value) {
-    return true;
+  private TypeMirror asTypeMirror(TypeName name) {
+    if (name.getClass().equals(WildcardTypeName.class)) {
+      final WildcardTypeName wildCard = (WildcardTypeName) name;
+      TypeMirror lowerBound = wildCard.lowerBounds.isEmpty()
+          ? null
+          : asTypeMirror(wildCard.lowerBounds.get(0));
+      TypeMirror upperBound = wildCard.upperBounds.isEmpty()
+          ? null
+          : asTypeMirror(wildCard.upperBounds.get(0));
+      return typeUtils.getWildcardType(upperBound, lowerBound);
+    }
+    return elementUtils.getTypeElement(name.getClass().equals(ParameterizedTypeName.class)
+        ? ((ParameterizedTypeName) name).rawType.toString()
+        : name.toString()).asType();
   }
-
 }

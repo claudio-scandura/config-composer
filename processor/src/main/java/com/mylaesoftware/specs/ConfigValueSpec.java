@@ -153,15 +153,15 @@ public class ConfigValueSpec {
   }
 
   private Optional<ClassName> customMapper() {
-    return typesExtractor.extractElement(configValueAnnotation::mappedBy, field.type, ConfigMapper.class, "mappedBy", abstractMethod)
+    ParameterizedTypeName mapperType = ParameterizedTypeName.get(ClassName.get(ConfigMapper.class), field.type.box());
+    return typesExtractor.extractElement(configValueAnnotation::mappedBy, mapperType, "mappedBy", abstractMethod)
         .map(ClassName::get);
   }
 
 
   private Collection<ClassName> validators() {
     return typesExtractor.extractElements(configValueAnnotation::validatedBy,
-        field.type,
-        ConfigValidator.class,
+        ParameterizedTypeName.get(ClassName.get(ConfigValidator.class), field.type.box()),
         "validatedBy",
         abstractMethod
     ).stream()
