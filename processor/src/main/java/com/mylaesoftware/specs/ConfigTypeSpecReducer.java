@@ -43,6 +43,9 @@ public class ConfigTypeSpecReducer {
 
     throwIfFalse(element.getKind().isInterface(), "annotation can only be used on interfaces", element);
 
+    throwIfFalse(element.getTypeParameters().isEmpty(),
+        "generics are not supported on ConfigType", element);
+
     throwIfFalse(element.getModifiers().contains(Modifier.PUBLIC),
         "annotation cannot be used on non public interfaces", element);
 

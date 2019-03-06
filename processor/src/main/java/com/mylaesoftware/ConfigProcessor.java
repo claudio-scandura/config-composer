@@ -38,11 +38,12 @@ public class ConfigProcessor extends AbstractProcessor {
   private final Set<Element> annotatedClasses = Collections.synchronizedSet(new HashSet<>());
 
   @Override
-  public synchronized void init(ProcessingEnvironment processingEnv) {
-    super.init(processingEnv);
-    filer = processingEnv.getFiler();
-    messager = processingEnv.getMessager();
-    AnnotationParamExtractor typesExtractor = new AnnotationParamExtractor(processingEnv.getTypeUtils(), processingEnv.getElementUtils());
+  public synchronized void init(ProcessingEnvironment env) {
+    super.init(env);
+    filer = env.getFiler();
+    messager = env.getMessager();
+    AnnotationParamExtractor typesExtractor = new AnnotationParamExtractor(env.getTypeUtils(), env.getElementUtils()
+    );
     reducer = new ConfigTypeSpecReducer(typesExtractor);
   }
 
