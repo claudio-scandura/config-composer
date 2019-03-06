@@ -111,10 +111,10 @@ public class AnnotationParamExtractor {
       if (expectedType.getClass().equals(ParameterizedTypeName.class)) {
         if (actualType.getClass().equals(ParameterizedTypeName.class)) {
 
-          List<TypeName> typeArguments = ((ParameterizedTypeName) expectedType).typeArguments;
-          List<TypeName> vTypeArguments = ((ParameterizedTypeName) actualType).typeArguments;
-          return IntStream.range(0, Math.min(typeArguments.size(), vTypeArguments.size())).allMatch(idx ->
-              isAssignableTo(typeArguments.get(idx)).test(vTypeArguments.get(idx))
+          List<TypeName> expectedTypeArgs = ((ParameterizedTypeName) expectedType).typeArguments;
+          List<TypeName> actualTypeArgs = ((ParameterizedTypeName) actualType).typeArguments;
+          return IntStream.range(0, Math.min(expectedTypeArgs.size(), actualTypeArgs.size())).allMatch(idx ->
+              isAssignableTo(expectedTypeArgs.get(idx)).test(actualTypeArgs.get(idx))
           );
         }
         return false;

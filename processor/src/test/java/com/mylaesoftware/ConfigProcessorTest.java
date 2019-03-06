@@ -296,7 +296,7 @@ public class ConfigProcessorTest {
       String input = String.format(
           "import " + CONFIG_VALUE.canonicalName + ";\n" +
               "\n" +
-              "interface %s {\n" +
+              "public interface %s {\n" +
               "@" + CONFIG_VALUE.name + "(atPath = \"any\")\n" +
               "String %s();\n" +
               "}\n", className, methodName);
@@ -354,8 +354,6 @@ public class ConfigProcessorTest {
     }
 
 
-    //    @Disabled("This is no longer a priority as to do it properly we need to inspect erased types " +
-//        "and check inheritance trees and is not really worth it")
     @Test
     public void generateErrorIfAnnotatedMethodHasCustomMapperThatDoesNotMatchReturnedType() {
       String interfaceName = "Foo";
@@ -410,7 +408,7 @@ public class ConfigProcessorTest {
               "import " + CONFIG_VALUE.canonicalName + ";\n" +
               "\n" +
               "@" + CONFIG_TYPE.name + "\n" +
-              "interface %s {\n" +
+              "public interface %s {\n" +
               "@" + CONFIG_VALUE.name + "(atPath = \"any\")\n" +
               "%s %s();\n" +
               "}\n", interfaceName, CONFIG_FIELD_TYPE, CONFIG_FIELD_NAME);
@@ -425,10 +423,33 @@ public class ConfigProcessorTest {
                 CONFIG_FIELD_NAME, CONFIG_VALUE.name, interfaceName);
       });
     }
+
+    @Test
+    public void generateErrorIfAnnotatedTypeHasGenerics() {
+      String interfaceName = "Foo";
+      String input = String.format(
+          "package " + GlobalConfig.class.getPackage().getName() + ";\n" +
+              "import " + CONFIG_TYPE.canonicalName + ";\n" +
+              "import " + CONFIG_VALUE.canonicalName + ";\n" +
+              "\n" +
+              "@" + CONFIG_TYPE.name + "\n" +
+              "public interface %s<T> {\n" +
+              "@" + CONFIG_VALUE.name + "(atPath = \"any\")\n" +
+              "%s %s();\n" +
+              "}\n", interfaceName, CONFIG_FIELD_TYPE, CONFIG_FIELD_NAME);
+
+      Map<String, String> sources = new HashMap<>();
+      sources.put(interfaceName, input);
+      withFailedCompilation(sources, errors -> {
+        assertThat(errors).hasSize(1);
+        DiagnosticAssert.assertThat(errors.get(0))
+            .isErrorContaining("generics are not supported", CONFIG_TYPE.name, interfaceName);
+      });
+    }
   }
 
   @Test
-  public void shouldBuildInParallel() throws URISyntaxException, IOException {
+  public void shouldBuildInParallel() throws URISyntaxException {
     final AtomicInteger i = new AtomicInteger();
     Map<String, String> sources = FileUtils.listFiles(new File(getClass().getResource("/java/").toURI()), null, false)
         .parallelStream()
@@ -436,11 +457,9 @@ public class ConfigProcessorTest {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     while (i.incrementAndGet() < 100) {
       try {
-        withCompiledSource(sources, result -> {
-          assertThat(result.status())
-              .as("Compilation failed at iteration %d with: %s generated code:\n", i.get(), result.errors())
-              .isEqualTo(Status.SUCCESS);
-        });
+        withCompiledSource(sources, result -> assertThat(result.status())
+            .as("Compilation failed at iteration %d with: %s generated code:\n", i.get(), result.errors())
+            .isEqualTo(Status.SUCCESS));
 
       } catch (Exception e) {
         throw new RuntimeException("Failed at iteration " + i.get(), e);
