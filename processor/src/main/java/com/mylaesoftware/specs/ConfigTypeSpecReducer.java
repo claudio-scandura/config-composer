@@ -7,7 +7,6 @@ import com.mylaesoftware.annotations.ConfigValue;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.mylaesoftware.validators.ConfigValidator;
 import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.ParameterizedTypeName;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -81,9 +80,9 @@ public class ConfigTypeSpecReducer {
   }
 
   private Collection<ClassName> validators(ConfigType type, TypeElement element) {
-    return typesExtractor.extractElements(type::validatedBy,
-        ParameterizedTypeName.get(ClassName.get(ConfigValidator.class), ClassName.get(element)),
-        "validatedBy", element
+    return typesExtractor.extractElements(type::validatedBy, ConfigValidator.class,
+        "validatedBy",
+        element
     ).stream().map(ClassName::get).collect(toSet());
   }
 

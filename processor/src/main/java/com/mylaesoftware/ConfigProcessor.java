@@ -68,7 +68,7 @@ public class ConfigProcessor extends AbstractProcessor {
     try {
       validateConfigValueAnnotatedElements(roundEnv.getElementsAnnotatedWith(ConfigValue.class));
 
-      ConfigTypeSpec configClass = annotatedClasses.parallelStream()
+      ConfigTypeSpec configClass = annotatedClasses.stream()
           .map(e -> (TypeElement) e)
           .reduce(ConfigTypeSpec.empty(), reducer::accumulate, reducer::combine);
 

@@ -3,14 +3,15 @@ package com.mylaesoftware;
 import com.mylaesoftware.exceptions.AnnotationProcessingException;
 import com.mylaesoftware.mappers.NoMapper;
 import com.mylaesoftware.validators.NoValidation;
-import com.squareup.javapoet.ParameterizedTypeName;
-import com.squareup.javapoet.TypeName;
-import com.squareup.javapoet.WildcardTypeName;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.sun.tools.javac.code.Type;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.MirroredTypesException;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -41,27 +42,43 @@ public class AnnotationParamExtractor {
   }
 
   public Optional<TypeElement> extractElement(Supplier<Class<?>> annotationParam,
-                                              ParameterizedTypeName expectedGenericType,
+                                              Class<?> outerType,
                                               String parameterName,
-                                              Element enclosingElement) {
+                                              MethodSymbol annotatedMethod) {
     try {
       annotationParam.get();
     } catch (MirroredTypeException mte) {
-      return validated(mte.getTypeMirror(), expectedGenericType, parameterName, enclosingElement);
+      DeclaredType declaredType = declaredTypeFor(outerType, annotatedMethod.getReturnType());
+      return validated(mte.getTypeMirror(), declaredType, parameterName, annotatedMethod);
     }
     throw new RuntimeException("Cannot find type element");
   }
 
   public List<TypeElement> extractElements(Supplier<Class<?>[]> annotationParam,
-                                           ParameterizedTypeName expectedGenericType,
+                                           Class<?> outerType,
                                            String parameterName,
-                                           Element enclosingElement) {
+                                           MethodSymbol annotatedMethod) {
+    return extractElements(annotationParam, outerType, parameterName, annotatedMethod.getReturnType(), annotatedMethod);
+  }
+
+  public List<TypeElement> extractElements(Supplier<Class<?>[]> annotationParam,
+                                           Class<?> outerType,
+                                           String parameterName,
+                                           TypeElement annotatedType) {
+    return extractElements(annotationParam, outerType, parameterName, annotatedType.asType(), annotatedType);
+  }
+
+  private List<TypeElement> extractElements(Supplier<Class<?>[]> annotationParam,
+                                            Class<?> outerType,
+                                            String parameterName,
+                                            TypeMirror type,
+                                            Element element) {
     try {
       annotationParam.get();
     } catch (MirroredTypesException mte) {
       return mte.getTypeMirrors().stream()
           .flatMap(mirror ->
-              validated(mirror, expectedGenericType, parameterName, enclosingElement)
+              validated(mirror, declaredTypeFor(outerType, type), parameterName, element)
                   .map(Stream::of)
                   .orElse(Stream.empty())
           )
@@ -70,9 +87,19 @@ public class AnnotationParamExtractor {
     throw new RuntimeException("Cannot find type elements");
   }
 
+  private DeclaredType declaredTypeFor(Class<?> clazz, TypeMirror typeArg) {
+    TypeElement te = elementUtils.getTypeElement(clazz.getName());
+    return typeUtils.getDeclaredType(te, boxed(typeArg));
+  }
+
+  private TypeMirror boxed(TypeMirror type) {
+    return (type instanceof Type && ((Type) type).isPrimitive())
+        ? typeUtils.boxedClass((PrimitiveType) type).asType()
+        : type;
+  }
 
   private Optional<TypeElement> validated(TypeMirror mirror,
-                                          ParameterizedTypeName expectedType,
+                                          DeclaredType expectedType,
                                           String parameterName,
                                           Element enclosingElement) {
     TypeElement typeElement = (TypeElement) typeUtils.asElement(mirror);
@@ -81,8 +108,9 @@ public class AnnotationParamExtractor {
     }
     if (!isValid(typeElement, expectedType)) {
       throw new AnnotationProcessingException(
-          String.format("Annotation parameter '%s' needs to be a '%s'",
+          String.format("Annotation parameter '%s' with type '%s' needs to be a subtype of '%s'",
               parameterName,
+              typeElement,
               expectedType),
           enclosingElement
       );
@@ -90,29 +118,33 @@ public class AnnotationParamExtractor {
     return Optional.of(typeElement);
   }
 
-  private boolean isValid(TypeElement actual, ParameterizedTypeName expectedType) {
+  private boolean isValid(TypeElement actual, DeclaredType expectedType) {
     return !actual.getInterfaces().stream()
-        .map(TypeName::get)
-        .filter(ParameterizedTypeName.class::isInstance)
+        .filter(DeclaredType.class::isInstance)
         .filter(isAssignableTo(expectedType))
         .collect(toList())
         .isEmpty();
 
   }
 
-  private Predicate<TypeName> isAssignableTo(TypeName expectedType) {
+  private Predicate<TypeMirror> isAssignableTo(TypeMirror expectedType) {
     return actualType -> {
-      TypeMirror expectedErasedType = typeUtils.erasure(asTypeMirror(expectedType));
-      TypeMirror actualErasedValue = typeUtils.erasure(asTypeMirror(actualType));
+      TypeMirror expectedErasedType = typeUtils.erasure(expectedType);
+      TypeMirror actualErasedValue = typeUtils.erasure(actualType);
 
       if (!typeUtils.isAssignable(expectedErasedType, actualErasedValue)) {
         return false;
       }
-      if (expectedType.getClass().equals(ParameterizedTypeName.class)) {
-        if (actualType.getClass().equals(ParameterizedTypeName.class)) {
 
-          List<TypeName> expectedTypeArgs = ((ParameterizedTypeName) expectedType).typeArguments;
-          List<TypeName> actualTypeArgs = ((ParameterizedTypeName) actualType).typeArguments;
+      if (actualType instanceof Type.WildcardType) {
+        return true;
+      }
+
+      if (expectedType instanceof DeclaredType) {
+        if (actualType instanceof DeclaredType) {
+
+          List<? extends TypeMirror> expectedTypeArgs = ((DeclaredType) expectedType).getTypeArguments();
+          List<? extends TypeMirror> actualTypeArgs = ((DeclaredType) actualType).getTypeArguments();
           return IntStream.range(0, Math.min(expectedTypeArgs.size(), actualTypeArgs.size())).allMatch(idx ->
               isAssignableTo(expectedTypeArgs.get(idx)).test(actualTypeArgs.get(idx))
           );
@@ -123,19 +155,4 @@ public class AnnotationParamExtractor {
     };
   }
 
-  private TypeMirror asTypeMirror(TypeName name) {
-    if (name.getClass().equals(WildcardTypeName.class)) {
-      final WildcardTypeName wildCard = (WildcardTypeName) name;
-      TypeMirror lowerBound = wildCard.lowerBounds.isEmpty()
-          ? null
-          : asTypeMirror(wildCard.lowerBounds.get(0));
-      TypeMirror upperBound = wildCard.upperBounds.isEmpty()
-          ? null
-          : asTypeMirror(wildCard.upperBounds.get(0));
-      return typeUtils.getWildcardType(upperBound, lowerBound);
-    }
-    return elementUtils.getTypeElement(name.getClass().equals(ParameterizedTypeName.class)
-        ? ((ParameterizedTypeName) name).rawType.toString()
-        : name.toString()).asType();
-  }
 }
