@@ -1,10 +1,13 @@
 buildscript {
+    ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
 }
 
 allprojects {
+    
     apply plugin: "java"
-    apply plugin: 'maven-publish'
+    apply plugin: "maven-publish"
     apply plugin: "checkstyle"
+    apply plugin: "signing"
 
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
@@ -55,14 +58,52 @@ allprojects {
         }
     }
 
+    task sourcesJar(type: Jar) {
+        from sourceSets.main.allJava
+        archiveClassifier = 'sources'
+    }
+
+    task javadocJar(type: Jar) {
+        from javadoc
+        archiveClassifier = 'javadoc'
+    }
+
     publishing {
 
         publications {
             mavenJava(MavenPublication) {
                 groupId 'com.mylaesoftware'
                 from components.java
+                artifact sourcesJar
+                artifact javadocJar
+                pom {
+                    name = 'Config Composer'
+                    description = 'A library to auto generate code for Lightbend/Typesafe configuration handling'
+                    url = 'https://github.com/claudio-scandura/config-composer'
+                    licenses {
+                        license {
+                            name = 'MIT License'
+                            url = 'https://github.com/claudio-scandura/config-composer/blob/master/LICENSE.md'
+                        }
+                    }
+                    developers {
+                        developer {
+                            id = 'claudio-scandura'
+                            name = 'Claudio Scandura'
+                            email = 'cl.scandura@gmail.com'
+                        }
+                    }
+                }
             }
         }
+    }
+
+    tasks.withType(Sign) {
+        onlyIf { isReleaseVersion }
+    }
+
+    signing {
+        sign publishing.publications.mavenJava
     }
 
 }
