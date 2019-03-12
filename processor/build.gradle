@@ -11,9 +11,6 @@ dependencies {
 
     testImplementation "commons-io:commons-io:2.6"
     testImplementation "com.google.testing.compile:compile-testing:0.15"
-    testImplementation "org.junit.jupiter:junit-jupiter-api:5.1.0"
-    testImplementation "org.assertj:assertj-core:3.10.0"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.1.0"
 }
 
 publishing {

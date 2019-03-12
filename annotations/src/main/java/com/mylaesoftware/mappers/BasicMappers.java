@@ -70,7 +70,7 @@ public class BasicMappers {
   public static final class ConfigM implements ConfigMapper<Config> {
     @Override
     public Config apply(Config config, String key) {
-      return config.getConfig(key);
+      return key.trim().isEmpty() ? config : config.getConfig(key);
     }
   }
 
