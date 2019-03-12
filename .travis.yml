@@ -14,5 +14,18 @@ cache:
 jdk:
   - oraclejdk8
 
-script:
-  - ./gradlew build
+jobs:
+  include:
+    - stage: "Test"
+      name: "tests"
+      script: ./gradlew test
+    - script: ./gradlew checkstyleMain checkstyleTest
+      name: "checkstyle"
+    - stage: release
+      script: ./release.sh
+
+
+stages:
+  - test
+  - name: release
+    if: branch = master
