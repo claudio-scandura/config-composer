@@ -1,9 +1,12 @@
 buildscript {
     ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
+    ext.sonatypeUrl = "https://oss.sonatype.org"
+    ext.sonatypeUser = project.findProperty("ossrhUsername") ?: System.getenv("OSSRH_USERNAME")
+    ext.sonatypePassword = project.findProperty("ossrhPassword") ?: System.getenv("OSSRH_PASSWORD")
 }
 
 allprojects {
-    
+
     apply plugin: "java"
     apply plugin: "maven-publish"
     apply plugin: "checkstyle"
@@ -22,7 +25,7 @@ allprojects {
         testImplementation "org.assertj:assertj-core:3.10.0"
         testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.1.0"
     }
-    
+
     checkstyle {
         toolVersion = "8.17"
         maxWarnings = 0
@@ -47,7 +50,6 @@ allprojects {
             html.enabled = true
         }
 
-        // show standard out and standard error of the test JVM(s) on the console
         testLogging {
             showStandardStreams = project.hasProperty("show-logs")
             events 'PASSED', 'FAILED', 'SKIPPED'
@@ -76,6 +78,18 @@ allprojects {
 
     publishing {
 
+        repositories {
+            maven {
+                def releasesRepoUrl = "$sonatypeUrl/service/local/staging/deploy/maven2"
+                def snapshotsRepoUrl = "$sonatypeUrl/content/repositories/snapshots"
+                url isReleaseVersion ? releasesRepoUrl : snapshotsRepoUrl
+                credentials {
+                    username = sonatypeUser
+                    password = sonatypePassword
+                }
+            }
+        }
+
         publications {
             mavenJava(MavenPublication) {
                 groupId 'com.mylaesoftware'
@@ -99,6 +113,11 @@ allprojects {
                             email = 'cl.scandura@gmail.com'
                         }
                     }
+                    scm {
+                        connection = 'scm:git:git://github.com/claudio-scandura/config-composer.git'
+                        developerConnection = 'scm:git:ssh://github.com/claudio-scandura/config-composer.git'
+                        url = 'https://github.com/claudio-scandura/config-composer'
+                    }
                 }
             }
         }
@@ -110,6 +129,7 @@ allprojects {
 
     signing {
         sign publishing.publications.mavenJava
+        sign configurations.archives
     }
 
 }
