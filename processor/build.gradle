@@ -18,6 +18,9 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId 'config-composer-processor'
+            pom {
+                name = 'Config Composer annotation processor'
+            }
         }
     }
 }

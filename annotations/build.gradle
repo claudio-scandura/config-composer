@@ -13,6 +13,9 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId 'config-composer'
+            pom {
+                name = 'Config Composer'
+            }
         }
     }
 }
