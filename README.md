@@ -168,14 +168,14 @@ All the basic types supported by `com.typesafe.config.Config` are also natively 
 In addition to that, the `com.typesafe.config.ConfigBeanFactory::create` method is used to attempt to read a complex type into a bean when 
 `@ConfigType(fallbackToBeanMapper = true)`.
 
-If needed, it is however possible to define custom mappers by implementing the `com.mylaesoftware.mappers.ConfigMappe` interface.
+If needed, it is however possible to define custom mappers by implementing the `com.mylaesoftware.mappers.ConfigMapper` interface.
 
 ```java
 
 @ConfigType(fallbackToBeanMapper = true)
 public interface ComplexConfig {
 
-  // This will be mapped using com.typesafe.config.ConfigBeanFactory::create
+  // This will be mapped using com.typesafe.config.ConfigBeanFactory#create
   @ConfigValue(atPath = "complex.a-bean")
   CustomObject aBean();
   
@@ -195,7 +195,7 @@ public interface ComplexConfig {
 
 ### Validation
 Similar to custom mapping, semantic validation can be done on both `ConfigValue`s and `ConfigType`s by passing the validator classes to the `validatedBy` 
-field of the annotations. Note that this fields accepts array of classes, in which case the target type/value will need to pass multiple validation steps.
+field of the annotations. Note that the field accepts array of classes, in which case the target type/value will need to pass multiple validation steps.
 
 ```java
 
