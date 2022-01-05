@@ -12,11 +12,19 @@ allprojects {
     apply plugin: "checkstyle"
     apply plugin: "signing"
 
-    sourceCompatibility = 1.8
-    targetCompatibility = 1.8
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+
+    compileJava {
+        doFirst {
+            options.compilerArgs = [
+                    '--add-exports', 'jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED',
+                    '--add-exports', 'jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED'
+            ]
+        }
+    }
 
     repositories {
-        jcenter()
         mavenCentral()
     }
 
