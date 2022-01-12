@@ -1,6 +1,6 @@
 
 # Config Composer
-[![Build Status](https://travis-ci.com/claudio-scandura/config-composer.svg?branch=master)](https://travis-ci.com/claudio-scandura/config-composer)
+[![Build Status](https://app.travis-ci.com/claudio-scandura/config-composer.svg?branch=master)](https://travis-ci.com/github/claudio-scandura/config-composer)
 
 Config Composer is a Java library to simplify the loading and composition of [Typesafe/Lightbend](https://github.com/lightbend/config) configuration, removing the need for most of the boilerplate
 usually involved into binding config files into an object model.
